@@ -1,5 +1,7 @@
 # Payload Blank Template
 
+> Актуальная конфигурация Evil: Payload + Next.js + PostgreSQL, локальный запуск `pnpm dev`. Инструкции шаблона про MongoDB и Docker ниже не применяются к текущему проекту. Модель: [docs/data-model.md](docs/data-model.md). Режим schema push, текущий этап, ограничения и проверки: [docs/payload-development.md](docs/payload-development.md).
+
 This template comes configured with the bare minimum to get started on anything you need.
 
 ## Quick start

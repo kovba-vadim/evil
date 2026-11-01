@@ -69,6 +69,8 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    'ordinary-items': OrdinaryItem;
+    resources: Resource;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,6 +80,8 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'ordinary-items': OrdinaryItemsSelect<false> | OrdinaryItemsSelect<true>;
+    resources: ResourcesSelect<false> | ResourcesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -164,6 +168,74 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ordinary-items".
+ */
+export interface OrdinaryItem {
+  id: number;
+  name: string;
+  /**
+   * Создавать слаг из названия при сохранении.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "resources".
+ */
+export interface Resource {
+  id: number;
+  name: string;
+  /**
+   * Создавать слаг из названия при сохранении.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  craftable?: boolean | null;
+  /**
+   * При выключении крафта рецепт сохраняется как неактивный.
+   */
+  recipe?: {
+    resourceIngredients?:
+      | {
+          resource: number | Resource;
+          quantity: number;
+          id?: string | null;
+        }[]
+      | null;
+    ordinaryIngredients?:
+      | {
+          item: number | OrdinaryItem;
+          quantity: number;
+          id?: string | null;
+        }[]
+      | null;
+    coins?: number | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -193,6 +265,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'ordinary-items';
+        value: number | OrdinaryItem;
+      } | null)
+    | ({
+        relationTo: 'resources';
+        value: number | Resource;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -276,6 +356,51 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ordinary-items_select".
+ */
+export interface OrdinaryItemsSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  image?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "resources_select".
+ */
+export interface ResourcesSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  image?: T;
+  description?: T;
+  craftable?: T;
+  recipe?:
+    | T
+    | {
+        resourceIngredients?:
+          | T
+          | {
+              resource?: T;
+              quantity?: T;
+              id?: T;
+            };
+        ordinaryIngredients?:
+          | T
+          | {
+              item?: T;
+              quantity?: T;
+              id?: T;
+            };
+        coins?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
