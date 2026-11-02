@@ -9,6 +9,14 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { OrdinaryItems } from './collections/OrdinaryItems'
 import { Resources } from './collections/Resources'
+import { EquipmentSets } from './collections/EquipmentSets'
+import { Clothing } from './collections/Clothing'
+import { Weapons } from './collections/Weapons'
+import { EventTimes } from './collections/EventTimes'
+import { Events } from './collections/Events'
+import { Quests } from './collections/Quests'
+import { Bosses } from './collections/Bosses'
+import { QuestCategories } from './collections/QuestCategories'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -20,7 +28,20 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, OrdinaryItems, Resources],
+  collections: [
+    Users,
+    Media,
+    OrdinaryItems,
+    Resources,
+    EquipmentSets,
+    Clothing,
+    Weapons,
+    EventTimes,
+    Events,
+    Quests,
+    QuestCategories,
+    Bosses,
+  ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

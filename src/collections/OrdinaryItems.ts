@@ -5,7 +5,8 @@ import { preventIngredientDeletion } from '../hooks/recipes'
 
 export const OrdinaryItems: CollectionConfig = {
   slug: 'ordinary-items',
-  labels: { singular: 'Обычный предмет', plural: 'Обычные предметы' },
+  orderable: true,
+  labels: { singular: 'Обычный ресурс', plural: 'Обычные ресурсы' },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'slug', 'updatedAt'] },
   access: {
     read: authenticated,
@@ -18,5 +19,6 @@ export const OrdinaryItems: CollectionConfig = {
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
+    { name: 'description', label: 'Описание', type: 'richText' },
   ],
 }

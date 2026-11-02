@@ -71,17 +71,40 @@ export interface Config {
     media: Media;
     'ordinary-items': OrdinaryItem;
     resources: Resource;
+    'equipment-sets': EquipmentSet;
+    clothing: Clothing;
+    weapons: Weapon;
+    'event-times': EventTime;
+    events: Event;
+    quests: Quest;
+    'quest-categories': QuestCategory;
+    bosses: Boss;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    'equipment-sets': {
+      parts: 'clothing';
+    };
+    'quest-categories': {
+      quests: 'quests';
+    };
+  };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'ordinary-items': OrdinaryItemsSelect<false> | OrdinaryItemsSelect<true>;
     resources: ResourcesSelect<false> | ResourcesSelect<true>;
+    'equipment-sets': EquipmentSetsSelect<false> | EquipmentSetsSelect<true>;
+    clothing: ClothingSelect<false> | ClothingSelect<true>;
+    weapons: WeaponsSelect<false> | WeaponsSelect<true>;
+    'event-times': EventTimesSelect<false> | EventTimesSelect<true>;
+    events: EventsSelect<false> | EventsSelect<true>;
+    quests: QuestsSelect<false> | QuestsSelect<true>;
+    'quest-categories': QuestCategoriesSelect<false> | QuestCategoriesSelect<true>;
+    bosses: BossesSelect<false> | BossesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -172,13 +195,29 @@ export interface Media {
  */
 export interface OrdinaryItem {
   id: number;
+  _order?: string | null;
   name: string;
   /**
-   * Создавать слаг из названия при сохранении.
+   * Слаг новой записи автоматически заполняется из названия.
    */
   generateSlug?: boolean | null;
   slug: string;
   image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -188,9 +227,10 @@ export interface OrdinaryItem {
  */
 export interface Resource {
   id: number;
+  _order?: string | null;
   name: string;
   /**
-   * Создавать слаг из названия при сохранении.
+   * Слаг новой записи автоматически заполняется из названия.
    */
   generateSlug?: boolean | null;
   slug: string;
@@ -236,6 +276,359 @@ export interface Resource {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "equipment-sets".
+ */
+export interface EquipmentSet {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Состав определяется связью «Сет» в одежде. Число частей не ограничено.
+   */
+  parts?: {
+    docs?: (number | Clothing)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clothing".
+ */
+export interface Clothing {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Для части комплекта выберите сет. Для хазмата оставьте пустым
+   */
+  equipmentSet?: (number | null) | EquipmentSet;
+  craftable?: boolean | null;
+  /**
+   * При выключении крафта рецепт сохраняется как неактивный.
+   */
+  recipe?: {
+    resourceIngredients?:
+      | {
+          resource: number | Resource;
+          quantity: number;
+          id?: string | null;
+        }[]
+      | null;
+    ordinaryIngredients?:
+      | {
+          item: number | OrdinaryItem;
+          quantity: number;
+          id?: string | null;
+        }[]
+      | null;
+    coins?: number | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "weapons".
+ */
+export interface Weapon {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  craftable?: boolean | null;
+  /**
+   * При выключении крафта рецепт сохраняется как неактивный.
+   */
+  recipe?: {
+    resourceIngredients?:
+      | {
+          resource: number | Resource;
+          quantity: number;
+          id?: string | null;
+        }[]
+      | null;
+    ordinaryIngredients?:
+      | {
+          item: number | OrdinaryItem;
+          quantity: number;
+          id?: string | null;
+        }[]
+      | null;
+    coins?: number | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Ежедневное время по серверу UTC+3, без календарной даты.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-times".
+ */
+export interface EventTime {
+  id: number;
+  _order?: string | null;
+  /**
+   * От 00:00 до 23:59. Например, 05:25. Вводите время вручную.
+   */
+  time: string;
+  /**
+   * Вычисляются сервером при сохранении. До первого сохранения показан 0. Для хронологической сортировки запросов используйте minutes.
+   */
+  minutes: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events".
+ */
+export interface Event {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  shortDescription?: string | null;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Выберите известные ежедневные времена по серверу UTC+3. Расписание не генерируется автоматически.
+   */
+  launchTimes?: (number | EventTime)[] | null;
+  coins: number;
+  /**
+   * Правило игры, а не интервал запусков и не личный таймер.
+   */
+  cooldownMinutes: number;
+  rewards?:
+    | {
+        resource: number | Resource;
+        /**
+         * 0 — кастомный предмет может не выпасть.
+         */
+        minQuantity: number;
+        maxQuantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quests".
+ */
+export interface Quest {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Необязательно. Выберите одну категорию квеста.
+   */
+  category?: (number | null) | QuestCategory;
+  coins: number;
+  /**
+   * Сколько нужно собрать, добыть или выполнить для завершения квеста
+   */
+  requiredQuantity?: number | null;
+  /**
+   * Необязательно. Например, «6 часов» или «Раз в сутки». Справочная информация без персонального таймера.
+   */
+  cooldown?: string | null;
+  /**
+   * Служебное поле для безопасного переноса прежних значений. Колонку пока не удалять.
+   */
+  cooldownMinutes?: number | null;
+  rewards?:
+    | {
+        resource: number | Resource;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  ordinaryRewards?:
+    | {
+        item: number | OrdinaryItem;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quest-categories".
+ */
+export interface QuestCategory {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * Список определяется полем «Категория» у квестов.
+   */
+  quests?: {
+    docs?: (number | Quest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bosses".
+ */
+export interface Boss {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  coins: number;
+  /**
+   * Выберите кастомные предметы и количество каждого. Без повторов.
+   */
+  rewards?:
+    | {
+        resource: number | Resource;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  goldenHeart?: (number | null) | Resource;
+  personalHeart?: (number | null) | Resource;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -273,6 +666,38 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'resources';
         value: number | Resource;
+      } | null)
+    | ({
+        relationTo: 'equipment-sets';
+        value: number | EquipmentSet;
+      } | null)
+    | ({
+        relationTo: 'clothing';
+        value: number | Clothing;
+      } | null)
+    | ({
+        relationTo: 'weapons';
+        value: number | Weapon;
+      } | null)
+    | ({
+        relationTo: 'event-times';
+        value: number | EventTime;
+      } | null)
+    | ({
+        relationTo: 'events';
+        value: number | Event;
+      } | null)
+    | ({
+        relationTo: 'quests';
+        value: number | Quest;
+      } | null)
+    | ({
+        relationTo: 'quest-categories';
+        value: number | QuestCategory;
+      } | null)
+    | ({
+        relationTo: 'bosses';
+        value: number | Boss;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -362,10 +787,12 @@ export interface MediaSelect<T extends boolean = true> {
  * via the `definition` "ordinary-items_select".
  */
 export interface OrdinaryItemsSelect<T extends boolean = true> {
+  _order?: T;
   name?: T;
   generateSlug?: T;
   slug?: T;
   image?: T;
+  description?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -374,6 +801,7 @@ export interface OrdinaryItemsSelect<T extends boolean = true> {
  * via the `definition` "resources_select".
  */
 export interface ResourcesSelect<T extends boolean = true> {
+  _order?: T;
   name?: T;
   generateSlug?: T;
   slug?: T;
@@ -399,6 +827,195 @@ export interface ResourcesSelect<T extends boolean = true> {
             };
         coins?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "equipment-sets_select".
+ */
+export interface EquipmentSetsSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  image?: T;
+  description?: T;
+  parts?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clothing_select".
+ */
+export interface ClothingSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  image?: T;
+  description?: T;
+  equipmentSet?: T;
+  craftable?: T;
+  recipe?:
+    | T
+    | {
+        resourceIngredients?:
+          | T
+          | {
+              resource?: T;
+              quantity?: T;
+              id?: T;
+            };
+        ordinaryIngredients?:
+          | T
+          | {
+              item?: T;
+              quantity?: T;
+              id?: T;
+            };
+        coins?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "weapons_select".
+ */
+export interface WeaponsSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  image?: T;
+  description?: T;
+  craftable?: T;
+  recipe?:
+    | T
+    | {
+        resourceIngredients?:
+          | T
+          | {
+              resource?: T;
+              quantity?: T;
+              id?: T;
+            };
+        ordinaryIngredients?:
+          | T
+          | {
+              item?: T;
+              quantity?: T;
+              id?: T;
+            };
+        coins?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-times_select".
+ */
+export interface EventTimesSelect<T extends boolean = true> {
+  _order?: T;
+  time?: T;
+  minutes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events_select".
+ */
+export interface EventsSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  shortDescription?: T;
+  description?: T;
+  launchTimes?: T;
+  coins?: T;
+  cooldownMinutes?: T;
+  rewards?:
+    | T
+    | {
+        resource?: T;
+        minQuantity?: T;
+        maxQuantity?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quests_select".
+ */
+export interface QuestsSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  description?: T;
+  category?: T;
+  coins?: T;
+  requiredQuantity?: T;
+  cooldown?: T;
+  cooldownMinutes?: T;
+  rewards?:
+    | T
+    | {
+        resource?: T;
+        quantity?: T;
+        id?: T;
+      };
+  ordinaryRewards?:
+    | T
+    | {
+        item?: T;
+        quantity?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quest-categories_select".
+ */
+export interface QuestCategoriesSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  quests?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bosses_select".
+ */
+export interface BossesSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  image?: T;
+  description?: T;
+  coins?: T;
+  rewards?:
+    | T
+    | {
+        resource?: T;
+        quantity?: T;
+        id?: T;
+      };
+  goldenHeart?: T;
+  personalHeart?: T;
   updatedAt?: T;
   createdAt?: T;
 }

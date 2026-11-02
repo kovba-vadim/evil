@@ -9,11 +9,9 @@ function relationshipID(value: unknown): ID | undefined {
   if (value && typeof value === 'object' && 'id' in value) return relationshipID(value.id)
 }
 
-export const validateRecipe: CollectionBeforeChangeHook<Resource> = async ({
-  data,
-  originalDoc,
-  req,
-}) => {
+export const validateRecipe: CollectionBeforeChangeHook<
+  Pick<Resource, 'id' | 'craftable' | 'recipe'>
+> = async ({ data, originalDoc, req, collection }) => {
   // PATCH can omit the group or individual group fields. Arrays are replaced, not merged.
   const recipe = data.recipe === null ? null : { ...originalDoc?.recipe, ...data.recipe }
   const craftable = data.craftable ?? originalDoc?.craftable ?? false
@@ -69,9 +67,9 @@ export const validateRecipe: CollectionBeforeChangeHook<Resource> = async ({
     }
   }
 
-  if (errors.length) throw new ValidationError({ collection: 'resources', errors, req })
+  if (errors.length) throw new ValidationError({ collection: collection.slug, errors, req })
 
-  if (craftable) {
+  if (craftable && collection.slug === 'resources') {
     const target = relationshipID(originalDoc?.id ?? data.id)
     const visited = new Set<string>()
     const pending = resources.map((row) => relationshipID(row.resource)!)
@@ -115,18 +113,90 @@ export const preventIngredientDeletion =
   async ({ id, req }) => {
     const field = kind === 'resource' ? 'resourceIngredients.resource' : 'ordinaryIngredients.item'
     // Deliberately includes inactive recipes: hiding a recipe does not remove its references.
-    const used = await req.payload.find({
-      collection: 'resources',
-      where: { [`recipe.${field}`]: { equals: id } },
-      limit: 1,
-      depth: 0,
-      req,
-      overrideAccess: true,
-    })
-    if (used.docs.length) {
-      throw new APIError(
-        `Нельзя удалить ингредиент: он используется в рецепте ресурса «${used.docs[0].name}». Сначала удалите ссылку из рецепта, включая неактивный.`,
-        400,
-      )
+    for (const collection of ['resources', 'clothing', 'weapons'] as const) {
+      const used = await req.payload.find({
+        collection,
+        where: { [`recipe.${field}`]: { equals: id } },
+        limit: 1,
+        depth: 0,
+        req,
+        overrideAccess: true,
+      })
+      if (used.docs.length) {
+        const label = { resources: 'Кастомные предметы', clothing: 'Одежда', weapons: 'Оружие' }[
+          collection
+        ]
+        throw new APIError(
+          `Нельзя удалить ингредиент: он используется в рецепте «${used.docs[0].name}» (${label}). Сначала удалите ссылку из рецепта, включая неактивный.`,
+          400,
+        )
+      }
+    }
+    if (kind === 'item') {
+      const quests = await req.payload.find({
+        collection: 'quests',
+        where: { 'ordinaryRewards.item': { equals: id } },
+        depth: 0,
+        limit: 1,
+        req,
+        overrideAccess: true,
+      })
+      if (quests.docs.length) {
+        throw new APIError(
+          `Нельзя удалить обычный ресурс: он указан в наградах квеста «${quests.docs[0].name}». Сначала удалите ссылку из наград.`,
+          400,
+        )
+      }
+    }
+    if (kind === 'resource') {
+      const used = await req.payload.find({
+        collection: 'events',
+        where: { 'rewards.resource': { equals: id } },
+        depth: 0,
+        limit: 1,
+        req,
+        overrideAccess: true,
+      })
+      if (used.docs.length) {
+        throw new APIError(
+          `Нельзя удалить кастомный предмет: он указан в возможных наградах ивента «${used.docs[0].name}». Сначала удалите ссылку из наград.`,
+          400,
+        )
+      }
+      const quests = await req.payload.find({
+        collection: 'quests',
+        where: { 'rewards.resource': { equals: id } },
+        depth: 0,
+        limit: 1,
+        req,
+        overrideAccess: true,
+      })
+      if (quests.docs.length) {
+        throw new APIError(
+          `Нельзя удалить кастомный предмет: он указан в наградах квеста «${quests.docs[0].name}». Сначала удалите ссылку из наград.`,
+          400,
+        )
+      }
+      const bosses = await req.payload.find({
+        collection: 'bosses',
+        // Legacy links still protect bosses that have not been backfilled yet.
+        where: {
+          or: [
+            { 'rewards.resource': { equals: id } },
+            { goldenHeart: { equals: id } },
+            { personalHeart: { equals: id } },
+          ],
+        },
+        depth: 0,
+        limit: 1,
+        req,
+        overrideAccess: true,
+      })
+      if (bosses.docs.length) {
+        throw new APIError(
+          `Нельзя удалить кастомный предмет: он указан в наградах ивент-босса «${bosses.docs[0].name}». Сначала удалите ссылку из наград или удалите запись босса.`,
+          400,
+        )
+      }
     }
   }
