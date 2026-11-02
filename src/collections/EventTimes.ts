@@ -12,7 +12,7 @@ export const EventTimes: CollectionConfig = {
     description: 'Ежедневное время по серверу UTC+3, без календарной даты.',
   },
   access: {
-    read: authenticated,
+    read: () => true,
     create: authenticated,
     update: authenticated,
     delete: authenticated,

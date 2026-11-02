@@ -3,6 +3,7 @@ import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
 import { recipeFields } from '../fields/recipe'
 import { preventIngredientDeletion, validateRecipe } from '../hooks/recipes'
+import { hideInactivePublicRecipe } from '../hooks/publicRecipes'
 
 export const Resources: CollectionConfig = {
   slug: 'resources',
@@ -10,12 +11,13 @@ export const Resources: CollectionConfig = {
   labels: { singular: 'Кастомный предмет', plural: 'Кастомные предметы' },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'craftable', 'slug', 'updatedAt'] },
   access: {
-    read: authenticated,
+    read: () => true,
     create: authenticated,
     update: authenticated,
     delete: authenticated,
   },
   hooks: {
+    afterRead: [hideInactivePublicRecipe],
     beforeChange: [validateRecipe],
     beforeDelete: [preventIngredientDeletion('resource')],
   },

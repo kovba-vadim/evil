@@ -36,7 +36,9 @@ export function testDatabaseURL(
   return target
 }
 
-export async function openTestPayload(): Promise<Payload> {
+export async function openTestPayload({
+  mediaDirectory,
+}: { mediaDirectory?: string } = {}): Promise<Payload> {
   const connectionString = testDatabaseURL()
   const [{ getPayload }, { postgresAdapter }, { default: base }] = await Promise.all([
     import('payload'),
@@ -48,6 +50,14 @@ export async function openTestPayload(): Promise<Payload> {
     key: `isolated-model-test-${crypto.randomUUID()}`,
     config: {
       ...config,
+      // Upload fixtures must not use the application's real Media directory.
+      collections: mediaDirectory
+        ? config.collections.map((collection) =>
+            collection.slug === 'media' && collection.upload
+              ? { ...collection, upload: { ...collection.upload, staticDir: mediaDirectory } }
+              : collection,
+          )
+        : config.collections,
       // Explicitly replace the adapter: never swap or reuse the working DATABASE_URL.
       db: {
         ...postgresAdapter({ pool: { connectionString }, push: true, disableCreateDatabase: true }),

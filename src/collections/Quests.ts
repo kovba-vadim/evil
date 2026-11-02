@@ -10,7 +10,7 @@ export const Quests: CollectionConfig = {
   labels: { singular: 'Квест', plural: 'Квесты' },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'category', 'coins', 'cooldown'] },
   access: {
-    read: authenticated,
+    read: () => true,
     create: authenticated,
     update: authenticated,
     delete: authenticated,

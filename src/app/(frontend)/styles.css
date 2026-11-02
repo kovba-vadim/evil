@@ -1,164 +1,219 @@
-:root {
-  --font-mono: 'Roboto Mono', monospace;
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@import 'tw-animate-css';
+@source "../../components/public";
+@source "../../components/ui";
+@source "./";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--primary);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent-foreground: var(--accent-foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html {
-  font-size: 18px;
-  line-height: 32px;
-
-  background: rgb(0, 0, 0);
+/* Public-only tokens. Payload uses its own root layout and stylesheet. */
+.public-app {
+  --radius: 0.625rem;
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #262626;
+  --muted: #f5f5f5;
+  --muted-foreground: #666666;
+  --accent: #eef2ff;
+  --accent-foreground: #4338ca;
+  --destructive: #dc2626;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #6366f1;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #262626;
+  margin: 0;
+  min-height: 100svh;
+  background: var(--background);
+  color: var(--foreground);
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-html,
-body,
-#app {
-  height: 100%;
+.dark .public-app {
+  --background: #171717;
+  --foreground: #fafafa;
+  --card: #171717;
+  --card-foreground: #fafafa;
+  --popover: #262626;
+  --popover-foreground: #fafafa;
+  --primary: #a5b4fc;
+  --primary-foreground: #1e1b4b;
+  --secondary: #262626;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #272447;
+  --accent-foreground: #c7d2fe;
+  --destructive: #f87171;
+  --border: #383838;
+  --input: #404040;
+  --ring: #818cf8;
+  --sidebar: #1c1c1c;
+  --sidebar-foreground: #fafafa;
+  color-scheme: dark;
 }
 
-body {
-  font-family: system-ui;
-  font-size: 18px;
-  line-height: 32px;
-
-  margin: 0;
-  color: rgb(1000, 1000, 1000);
-
-  @media (max-width: 1024px) {
-    font-size: 15px;
-    line-height: 24px;
+/* No global Tailwind Preflight: reset is restricted to the public body and portals. */
+@layer base {
+  .public-app,
+  .public-app *,
+  .public-app ::before,
+  .public-app ::after {
+    box-sizing: border-box;
+    border: 0 solid var(--border);
+  }
+  .public-app :where(h1, h2, h3, h4, h5, h6, p, ol, ul, menu) {
+    margin: 0;
+    padding: 0;
+  }
+  .public-app :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  .public-app :where(ol, ul, menu) {
+    list-style: none;
+  }
+  .public-app a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+  .public-app :where(button, input, select, textarea) {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+  .public-app button {
+    background: transparent;
+    cursor: pointer;
+  }
+  .public-app button:disabled {
+    cursor: default;
+  }
+  .public-app :where(svg, img) {
+    display: block;
+    vertical-align: middle;
+  }
+  .public-app img {
+    max-width: 100%;
+    height: auto;
+  }
+  .public-app :where(a, button):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
   }
 }
 
-img {
-  max-width: 100%;
-  height: auto;
-  display: block;
+.public-app .homepage-richtext {
+  color: var(--foreground);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
 }
 
-h1 {
-  margin: 40px 0;
-  font-size: 64px;
-  line-height: 70px;
-  font-weight: bold;
-
-  @media (max-width: 1024px) {
-    margin: 24px 0;
-    font-size: 42px;
-    line-height: 42px;
-  }
-
-  @media (max-width: 768px) {
-    font-size: 38px;
-    line-height: 38px;
-  }
-
-  @media (max-width: 400px) {
-    font-size: 32px;
-    line-height: 32px;
-  }
+.public-app .homepage-richtext > * + * {
+  margin-top: 1rem;
+}
+.public-app .homepage-richtext :where(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.public-app .homepage-richtext h1 {
+  font-size: 1.875rem;
+}
+.public-app .homepage-richtext h2 {
+  font-size: 1.5rem;
+}
+.public-app .homepage-richtext h3 {
+  font-size: 1.25rem;
+}
+.public-app .homepage-richtext :where(h4, h5, h6) {
+  font-size: 1.125rem;
+}
+.public-app .homepage-richtext p {
+  margin-block: 0.75rem;
+}
+.public-app .homepage-richtext :where(ul, ol) {
+  padding-left: 1.5rem;
+  margin-block: 1rem;
+}
+.public-app .homepage-richtext ul {
+  list-style-type: disc;
+}
+.public-app .homepage-richtext ol {
+  list-style-type: decimal;
+}
+.public-app .homepage-richtext li + li {
+  margin-top: 0.25rem;
+}
+.public-app .homepage-richtext li > :where(ul, ol) {
+  margin-block: 0.25rem;
+}
+.public-app .homepage-richtext a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.public-app .homepage-richtext a:hover {
+  text-decoration-thickness: 2px;
+}
+.public-app .homepage-richtext blockquote {
+  border-left-width: 3px;
+  padding-left: 1rem;
+  color: var(--muted-foreground);
 }
 
-p {
-  margin: 24px 0;
-
-  @media (max-width: 1024px) {
-    margin: calc(var(--base) * 0.75) 0;
-  }
-}
-
-a {
-  color: currentColor;
-
-  &:focus {
-    opacity: 0.8;
-    outline: none;
-  }
-
-  &:active {
-    opacity: 0.7;
-    outline: none;
-  }
-}
-
-svg {
-  vertical-align: middle;
-}
-
-.home {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  height: 100vh;
-  padding: 45px;
-  max-width: 1024px;
-  margin: 0 auto;
-  overflow: hidden;
-
-  @media (max-width: 400px) {
-    padding: 24px;
-  }
-
-  .content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex-grow: 1;
-
-    h1 {
-      text-align: center;
-    }
-  }
-
-  .links {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-
-    a {
-      text-decoration: none;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    .admin {
-      color: rgb(0, 0, 0);
-      background: rgb(1000, 1000, 1000);
-      border: 1px solid rgb(0, 0, 0);
-    }
-
-    .docs {
-      color: rgb(1000, 1000, 1000);
-      background: rgb(0, 0, 0);
-      border: 1px solid rgb(1000, 1000, 1000);
-    }
-  }
-
-  .footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    @media (max-width: 1024px) {
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    p {
-      margin: 0;
-    }
-
-    .codeLink {
-      text-decoration: none;
-      padding: 0 0.5rem;
-      background: rgb(60, 60, 60);
-      border-radius: 4px;
-    }
+@media (prefers-reduced-motion: reduce) {
+  .public-app *,
+  .public-app ::before,
+  .public-app ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

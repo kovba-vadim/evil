@@ -12,7 +12,7 @@ export const Events: CollectionConfig = {
     defaultColumns: ['name', 'launchTimes', 'coins', 'cooldownMinutes'],
   },
   access: {
-    read: authenticated,
+    read: () => true,
     create: authenticated,
     update: authenticated,
     delete: authenticated,

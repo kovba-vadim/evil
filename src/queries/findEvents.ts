@@ -19,6 +19,8 @@ export interface FindEventsOptions {
   req?: PayloadRequest
   /** Required: the caller must explicitly choose whether to enforce access. */
   overrideAccess: boolean
+  /** Optional event ordering; the default remains id. */
+  sort?: string | string[]
   /** Transport page size, not a cap on the returned events. */
   pageSize?: number
 }
@@ -32,11 +34,12 @@ export async function findEvents({
   req,
   overrideAccess,
   pageSize = 100,
+  sort = 'id',
 }: FindEventsOptions): Promise<Event[]> {
   if (!Number.isSafeInteger(pageSize) || pageSize < 1)
     throw new RangeError('pageSize must be a positive integer.')
   if (typeof overrideAccess !== 'boolean') throw new TypeError('Choose overrideAccess explicitly.')
-  const reader = { payload, user, req, overrideAccess, pageSize }
+  const reader = { payload, user, req, overrideAccess, pageSize, sort }
   const and: Where[] = [scope]
   if (filters.from !== undefined || filters.to !== undefined) {
     const bounds: Where[] = []
@@ -76,6 +79,7 @@ export async function findEvents({
 async function readAll<T extends 'events' | 'event-times'>(
   reader: Pick<FindEventsOptions, 'payload' | 'user' | 'req' | 'overrideAccess'> & {
     pageSize: number
+    sort: string | string[]
   },
   collection: T,
   where: Where,
@@ -87,7 +91,7 @@ async function readAll<T extends 'events' | 'event-times'>(
       where,
       page,
       limit: reader.pageSize,
-      sort: 'id',
+      sort: collection === 'events' ? reader.sort : 'id',
       depth: 0,
       user: reader.user,
       req: reader.req,

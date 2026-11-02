@@ -9,6 +9,6 @@ export default defineConfig({
     fileParallelism: false,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
-    include: ['tests/int/**/*.int.spec.ts'],
+    include: ['tests/int/**/*.int.spec.{ts,tsx}'],
   },
 })

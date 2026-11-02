@@ -11,7 +11,7 @@ export const Bosses: CollectionConfig = {
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'rewards', 'coins'] },
   forceSelect: { rewards: true, goldenHeart: true, personalHeart: true },
   access: {
-    read: authenticated,
+    read: () => true,
     create: authenticated,
     update: authenticated,
     delete: authenticated,

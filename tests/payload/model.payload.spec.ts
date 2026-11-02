@@ -484,10 +484,15 @@ describe('reverse queries and deletion guards through Payload', () => {
 })
 
 describe('quest fields and access control through Payload', () => {
-  it('enforces explicitly selected access control in the reusable event function', async () => {
+  it('allows public event and launch-time reads through the reusable function', async () => {
     await expect(
-      findEvents({ payload: api, user: null, overrideAccess: false }),
-    ).rejects.toMatchObject({ status: 403 })
+      findEvents({
+        payload: api,
+        user: null,
+        overrideAccess: false,
+        filters: { from: 480, to: 600 },
+      }),
+    ).resolves.toEqual(expect.any(Array))
   })
   it('migrates a legacy numeric quest cooldown on PATCH and preserves an explicit clear', async () => {
     const quest = await fixtures.create('quests', { ...named(), coins: 0 })
@@ -596,32 +601,33 @@ describe('quest fields and access control through Payload', () => {
     'quests',
     'quest-categories',
     'bosses',
-  ] as const)('denies anonymous CRUD for %s and allows authenticated reads', async (collection) => {
-    const data =
-      collection === 'event-times'
-        ? { time: '12:34', minutes: 0 }
-        : { ...named(), coins: 0, cooldownMinutes: 0 }
-    // Access is checked before field validation, including for malformed anonymous input.
-    await expect(api.find({ collection, overrideAccess: false, user: null })).rejects.toMatchObject(
-      { status: 403 },
-    )
-    await expect(
-      api.create({ collection, data: data as never, overrideAccess: false, user: null }),
-    ).rejects.toMatchObject({ status: 403 })
-    const doc =
-      collection === 'event-times'
-        ? await time('12:34')
-        : await fixtures.create(collection, data as never)
-    await expect(
-      api.findByID({ collection, id: doc.id, user, overrideAccess: false }),
-    ).resolves.toMatchObject({ id: doc.id })
-    await expect(
-      api.update({ collection, id: doc.id, data: {}, overrideAccess: false, user: null }),
-    ).rejects.toMatchObject({ status: 403 })
-    await expect(
-      api.delete({ collection, id: doc.id, overrideAccess: false, user: null }),
-    ).rejects.toMatchObject({ status: 403 })
-  })
+  ] as const)(
+    'applies current read policy and denies anonymous writes for %s',
+    async (collection) => {
+      const data =
+        collection === 'event-times'
+          ? { time: '12:34', minutes: 0 }
+          : { ...named(), coins: 0, cooldownMinutes: 0 }
+      // Access is checked before field validation, including for malformed anonymous input.
+      await expect(api.find({ collection, overrideAccess: false, user: null })).resolves.toBeDefined()
+      await expect(
+        api.create({ collection, data: data as never, overrideAccess: false, user: null }),
+      ).rejects.toMatchObject({ status: 403 })
+      const doc =
+        collection === 'event-times'
+          ? await time('12:34')
+          : await fixtures.create(collection, data as never)
+      await expect(
+        api.findByID({ collection, id: doc.id, user, overrideAccess: false }),
+      ).resolves.toMatchObject({ id: doc.id })
+      await expect(
+        api.update({ collection, id: doc.id, data: {}, overrideAccess: false, user: null }),
+      ).rejects.toMatchObject({ status: 403 })
+      await expect(
+        api.delete({ collection, id: doc.id, overrideAccess: false, user: null }),
+      ).rejects.toMatchObject({ status: 403 })
+    },
+  )
 })
 
 // Known upstream 3.92.1 regression: page >= 3 uses (page - 1) * (limit + 1) - 1.

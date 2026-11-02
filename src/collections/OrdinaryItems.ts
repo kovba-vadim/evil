@@ -9,7 +9,7 @@ export const OrdinaryItems: CollectionConfig = {
   labels: { singular: 'Обычный ресурс', plural: 'Обычные ресурсы' },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'slug', 'updatedAt'] },
   access: {
-    read: authenticated,
+    read: () => true,
     create: authenticated,
     update: authenticated,
     delete: authenticated,

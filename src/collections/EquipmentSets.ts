@@ -9,7 +9,7 @@ export const EquipmentSets: CollectionConfig = {
   labels: { singular: 'Сет', plural: 'Сеты' },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'slug', 'updatedAt'] },
   access: {
-    read: authenticated,
+    read: () => true,
     create: authenticated,
     update: authenticated,
     delete: authenticated,

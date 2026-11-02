@@ -17,6 +17,7 @@ import { Events } from './collections/Events'
 import { Quests } from './collections/Quests'
 import { Bosses } from './collections/Bosses'
 import { QuestCategories } from './collections/QuestCategories'
+import { Homepage } from './globals/Homepage'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -42,6 +43,7 @@ export default buildConfig({
     QuestCategories,
     Bosses,
   ],
+  globals: [Homepage],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
