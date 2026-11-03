@@ -1,3 +1,4 @@
+import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
@@ -15,7 +16,7 @@ export const EquipmentSets: CollectionConfig = {
     delete: authenticated,
   },
   hooks: { beforeDelete: [preventSetDeletion] },
-  fields: [
+  fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
@@ -32,5 +33,5 @@ export const EquipmentSets: CollectionConfig = {
         description: 'Состав определяется связью «Сет» в одежде. Число частей не ограничено.',
       },
     },
-  ],
+  ]),
 }

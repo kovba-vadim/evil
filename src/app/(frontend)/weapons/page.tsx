@@ -1,10 +1,12 @@
-import type { Metadata } from 'next'
+import { getPageMetadata } from '@/queries/public-seo'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getEquipmentCatalog } from '@/queries/public-items'
 import { ItemCards } from '@/components/public/resource-catalog'
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Кастом оружие' }
+export function generateMetadata() {
+  return getPageMetadata('weapons-page')
+}
 export default async function Page() {
   const payload = await getPayload({ config })
   const items = await getEquipmentCatalog(payload, 'weapons')

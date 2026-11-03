@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import { getEntryMetadata } from '@/queries/public-seo'
 import Link from 'next/link'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import { notFound } from 'next/navigation'
@@ -8,7 +8,9 @@ import { getPublicEventDetail } from '@/queries/public-events'
 import { EventLaunchTimes } from '@/components/public/event-launch-times'
 import { EventRewards } from '@/components/public/events'
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Ивент' }
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  return getEntryMetadata('events', (await params).slug, 'Ивент')
+}
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const detail = await getPublicEventDetail(await getPayload({ config }), slug)

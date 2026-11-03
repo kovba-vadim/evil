@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import { getEntryMetadata } from '@/queries/public-seo'
 import Link from 'next/link'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import { notFound } from 'next/navigation'
@@ -7,7 +7,9 @@ import config from '@payload-config'
 import { getPublicQuestDetail } from '@/queries/public-quests'
 import { QuestFacts, QuestRewards } from '@/components/public/quests'
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Квест' }
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  return getEntryMetadata('quests', (await params).slug, 'Квест')
+}
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params,
     detail = await getPublicQuestDetail(await getPayload({ config }), slug)

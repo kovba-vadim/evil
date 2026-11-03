@@ -1,10 +1,12 @@
-import type { Metadata } from 'next'
+import { getPageMetadata } from '@/queries/public-seo'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getCraftCatalog } from '@/queries/public-items'
 import { ItemCards } from '@/components/public/resource-catalog'
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Craft' }
+export function generateMetadata() {
+  return getPageMetadata('craft-page')
+}
 export default async function Page() {
   const items = await getCraftCatalog(await getPayload({ config }))
   return (

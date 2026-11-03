@@ -1,3 +1,4 @@
+import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
@@ -16,7 +17,7 @@ export const Quests: CollectionConfig = {
     delete: authenticated,
   },
   hooks: { beforeValidate: [migrateQuestCooldown], beforeChange: [validateQuest] },
-  fields: [
+  fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'description', label: 'Описание', type: 'richText' },
@@ -96,5 +97,5 @@ export const Quests: CollectionConfig = {
         { name: 'quantity', label: 'Количество', type: 'number', min: 1, required: true },
       ],
     },
-  ],
+  ]),
 }

@@ -1,3 +1,4 @@
+import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
@@ -18,7 +19,7 @@ export const Events: CollectionConfig = {
     delete: authenticated,
   },
   hooks: { beforeChange: [validateEvent] },
-  fields: [
+  fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'shortDescription', label: 'Короткое описание', type: 'text' },
@@ -82,5 +83,5 @@ export const Events: CollectionConfig = {
         },
       ],
     },
-  ],
+  ]),
 }

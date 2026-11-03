@@ -1,3 +1,4 @@
+import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
@@ -21,7 +22,7 @@ export const Clothing: CollectionConfig = {
     beforeChange: [validateClothingSet, validateRecipe],
     afterRead: [hideInactivePublicRecipe],
   },
-  fields: [
+  fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
@@ -37,5 +38,5 @@ export const Clothing: CollectionConfig = {
       },
     },
     ...recipeFields(),
-  ],
+  ]),
 }
