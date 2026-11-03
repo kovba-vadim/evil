@@ -15,7 +15,7 @@ function BossRewards({ rewards }: { rewards: BossCard['rewards'] }) {
           >
             {reward.name}
           </Link>
-          <span className="text-sm text-muted-foreground">Количество: {reward.quantity}</span>
+          <span className="text-sm text-muted-foreground">Количество333: {reward.quantity}</span>
         </li>
       ))}
     </ul>
@@ -41,7 +41,7 @@ export function BossCatalog({ items }: { items: BossCard[] }) {
                 <ItemImage image={item.image} name={item.name} />
                 <h2 className="font-medium wrap-anywhere">{item.name}</h2>
               </Link>
-              <p>Монеты: {item.coins}</p>
+              <p>Монеты333: {item.coins}</p>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Возможные награды</p>
                 <BossRewards rewards={item.rewards} />
@@ -59,7 +59,7 @@ export function BossDetails({ detail }: { detail: BossDetail }) {
   return (
     <article className="max-w-4xl space-y-9">
       <ItemHeading item={detail.item} />
-      <p>Монеты: {detail.coins}</p>
+      <p>Монеты111: {detail.coins}</p>
       <section aria-labelledby="rewards-title" className="space-y-4">
         <h2 id="rewards-title" className="text-xl font-semibold">
           Возможные награды
