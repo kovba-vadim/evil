@@ -1,3 +1,4 @@
+import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
@@ -17,11 +18,11 @@ export const Weapons: CollectionConfig = {
     delete: authenticated,
   },
   hooks: { beforeChange: [validateRecipe], afterRead: [hideInactivePublicRecipe] },
-  fields: [
+  fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
     { name: 'description', label: 'Описание и характеристики', type: 'richText' },
     ...recipeFields(),
-  ],
+  ]),
 }

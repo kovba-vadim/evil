@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import { getEntryMetadata } from '@/queries/public-seo'
 import { notFound } from 'next/navigation'
 import { getPayload } from 'payload'
 import config from '@payload-config'
@@ -6,7 +6,9 @@ import { getSetDetail } from '@/queries/public-items'
 import { ItemHeading } from '@/components/public/item-detail'
 import { ItemCards } from '@/components/public/resource-catalog'
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Сет' }
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  return getEntryMetadata('equipment-sets', (await params).slug, 'Сет')
+}
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const detail = await getSetDetail(await getPayload({ config }), slug)

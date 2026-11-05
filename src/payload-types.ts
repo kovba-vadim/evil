@@ -116,9 +116,25 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     homepage: Homepage;
+    'bosses-page': BossesPage;
+    'events-page': EventsPage;
+    'event-launches-page': EventLaunchesPage;
+    'quests-page': QuestsPage;
+    'items-page': ItemsPage;
+    'craft-page': CraftPage;
+    'clothing-page': ClothingPage;
+    'weapons-page': WeaponsPage;
   };
   globalsSelect: {
     homepage: HomepageSelect<false> | HomepageSelect<true>;
+    'bosses-page': BossesPageSelect<false> | BossesPageSelect<true>;
+    'events-page': EventsPageSelect<false> | EventsPageSelect<true>;
+    'event-launches-page': EventLaunchesPageSelect<false> | EventLaunchesPageSelect<true>;
+    'quests-page': QuestsPageSelect<false> | QuestsPageSelect<true>;
+    'items-page': ItemsPageSelect<false> | ItemsPageSelect<true>;
+    'craft-page': CraftPageSelect<false> | CraftPageSelect<true>;
+    'clothing-page': ClothingPageSelect<false> | ClothingPageSelect<true>;
+    'weapons-page': WeaponsPageSelect<false> | WeaponsPageSelect<true>;
   };
   locale: null;
   widgets: {
@@ -222,6 +238,10 @@ export interface OrdinaryItem {
     };
     [k: string]: unknown;
   } | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -275,6 +295,10 @@ export interface Resource {
       | null;
     coins?: number | null;
   };
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -314,6 +338,10 @@ export interface EquipmentSet {
     docs?: (number | Clothing)[];
     hasNextPage?: boolean;
     totalDocs?: number;
+  };
+  seo?: {
+    title?: string | null;
+    description?: string | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -372,6 +400,10 @@ export interface Clothing {
       | null;
     coins?: number | null;
   };
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -424,6 +456,10 @@ export interface Weapon {
         }[]
       | null;
     coins?: number | null;
+  };
+  seo?: {
+    title?: string | null;
+    description?: string | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -497,6 +533,10 @@ export interface Event {
         id?: string | null;
       }[]
     | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -559,6 +599,10 @@ export interface Quest {
         id?: string | null;
       }[]
     | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -628,6 +672,10 @@ export interface Boss {
     | null;
   goldenHeart?: (number | null) | Resource;
   personalHeart?: (number | null) | Resource;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -797,6 +845,12 @@ export interface OrdinaryItemsSelect<T extends boolean = true> {
   slug?: T;
   image?: T;
   description?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -831,6 +885,12 @@ export interface ResourcesSelect<T extends boolean = true> {
             };
         coins?: T;
       };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -846,6 +906,12 @@ export interface EquipmentSetsSelect<T extends boolean = true> {
   image?: T;
   description?: T;
   parts?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -881,6 +947,12 @@ export interface ClothingSelect<T extends boolean = true> {
             };
         coins?: T;
       };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -914,6 +986,12 @@ export interface WeaponsSelect<T extends boolean = true> {
               id?: T;
             };
         coins?: T;
+      };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -951,6 +1029,12 @@ export interface EventsSelect<T extends boolean = true> {
         maxQuantity?: T;
         id?: T;
       };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -982,6 +1066,12 @@ export interface QuestsSelect<T extends boolean = true> {
         item?: T;
         quantity?: T;
         id?: T;
+      };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -1020,6 +1110,12 @@ export interface BossesSelect<T extends boolean = true> {
       };
   goldenHeart?: T;
   personalHeart?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1086,6 +1182,114 @@ export interface Homepage {
     [k: string]: unknown;
   } | null;
   image?: (number | null) | Media;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bosses-page".
+ */
+export interface BossesPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events-page".
+ */
+export interface EventsPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-launches-page".
+ */
+export interface EventLaunchesPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quests-page".
+ */
+export interface QuestsPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "items-page".
+ */
+export interface ItemsPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "craft-page".
+ */
+export interface CraftPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clothing-page".
+ */
+export interface ClothingPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "weapons-page".
+ */
+export interface WeaponsPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1097,6 +1301,132 @@ export interface HomepageSelect<T extends boolean = true> {
   title?: T;
   description?: T;
   image?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bosses-page_select".
+ */
+export interface BossesPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events-page_select".
+ */
+export interface EventsPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-launches-page_select".
+ */
+export interface EventLaunchesPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quests-page_select".
+ */
+export interface QuestsPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "items-page_select".
+ */
+export interface ItemsPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "craft-page_select".
+ */
+export interface CraftPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clothing-page_select".
+ */
+export interface ClothingPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "weapons-page_select".
+ */
+export interface WeaponsPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

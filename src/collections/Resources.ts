@@ -1,3 +1,4 @@
+import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
@@ -21,11 +22,11 @@ export const Resources: CollectionConfig = {
     beforeChange: [validateRecipe],
     beforeDelete: [preventIngredientDeletion('resource')],
   },
-  fields: [
+  fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
     { name: 'description', label: 'Описание', type: 'richText' },
     ...recipeFields(),
-  ],
+  ]),
 }
