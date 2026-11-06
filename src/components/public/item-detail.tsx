@@ -29,11 +29,17 @@ export function ItemHeading({
   )
 }
 
-export function Recipe({ recipe }: { recipe: PublicRecipe }) {
+export function Recipe({
+  recipe,
+  title = 'Как скрафтить',
+}: {
+  recipe: PublicRecipe
+  title?: string
+}) {
   return (
     <section aria-labelledby="recipe-title" className="space-y-4">
       <h2 id="recipe-title" className="text-xl font-semibold">
-        Как скрафтить
+        {title}
       </h2>
       <ul className="grid gap-3 sm:grid-cols-2">
         {recipe.ingredients.map((item) => (

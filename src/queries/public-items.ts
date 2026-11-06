@@ -393,12 +393,73 @@ export async function getSetDetail(payload: Payload, slug: string, pageSize = 10
   const parts = await all(
     payload,
     'clothing',
-    { name: true, slug: true, image: true },
+    { name: true, slug: true, image: true, craftable: true, recipe: true },
     { equipmentSet: { equals: doc.id } },
     pageSize,
   )
-  const resolved = await cards(payload, [doc, ...parts], pageSize)
-  return { item: { ...resolved[0], description: doc.description }, parts: resolved.slice(1) }
+  // A part and each ingredient within its recipe count once, even if a transport
+  // page or a malformed relationship repeats them. Different parts still add up.
+  const uniqueParts = [...new Map(parts.map((part) => [part.id, part])).values()]
+  const resourceID = (value: number | { id: number } | null | undefined) =>
+    value == null ? null : idOf(value)
+  const resources = await byIDs(
+    payload,
+    'resources',
+    uniqueParts.flatMap((part) =>
+      part.craftable
+        ? (part.recipe?.resourceIngredients ?? []).flatMap((row) => {
+            const id = resourceID(row.resource)
+            return id == null ? [] : [id]
+          })
+        : [],
+    ),
+    { name: true, slug: true, image: true },
+    pageSize,
+  )
+  const [resolved, ingredients] = await Promise.all([
+    cards(payload, [doc, ...uniqueParts], pageSize),
+    cards(payload, resources, pageSize),
+  ])
+  const lookup = new Map(ingredients.map((item) => [item.id, item]))
+  const totals = new Map<number, PublicRecipe['ingredients'][number]>()
+  let coins = 0
+  let incomplete = false
+  const partCards = uniqueParts.map((part, index) => {
+    let recipe: PublicRecipe | null = null
+    let missingIngredients = false
+    if (part.craftable && part.recipe) {
+      const seen = new Set<number>()
+      const items: PublicRecipe['ingredients'] = []
+      for (const row of part.recipe.resourceIngredients ?? []) {
+        const id = resourceID(row.resource)
+        const item = id == null ? undefined : lookup.get(id)
+        if (!item || !item.slug || !Number.isSafeInteger(row.quantity) || row.quantity <= 0) {
+          missingIngredients = true
+          continue
+        }
+        if (seen.has(item.id)) continue
+        seen.add(item.id)
+        const ingredient = { ...item, kind: 'resources' as const, quantity: row.quantity }
+        items.push(ingredient)
+        const previous = totals.get(item.id)
+        totals.set(item.id, {
+          ...ingredient,
+          quantity: (previous?.quantity ?? 0) + row.quantity,
+        })
+      }
+      if (part.recipe.coins == null) missingIngredients = true
+      recipe = { ingredients: items, coins: part.recipe.coins ?? 0 }
+      coins += recipe.coins
+    }
+    if (!recipe || missingIngredients) incomplete = true
+    return { ...resolved[index + 1], recipe, missingIngredients }
+  })
+  return {
+    item: { ...resolved[0], description: doc.description },
+    parts: partCards,
+    totalRecipe: { ingredients: [...totals.values()], coins },
+    incomplete,
+  }
 }
 
 export type CraftKind = 'resources' | 'clothing' | 'weapons'

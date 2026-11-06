@@ -22,10 +22,21 @@ test('equipment catalogs, complete sets, navigation and empty states across them
     const set = await fixtures.create('equipment-sets', named(0))
     const empty = await fixtures.create('equipment-sets', named(1))
     const hazmat = await fixtures.create('clothing', { ...named(0), equipmentSet: null })
+    const resource = await fixtures.create('resources', named(0))
     const parts = [],
       weapons = []
     for (let index = 11; index >= 0; index--) {
-      parts.push(await fixtures.create('clothing', { ...named(index), equipmentSet: set.id }))
+      parts.push(
+        await fixtures.create('clothing', {
+          ...named(index),
+          equipmentSet: set.id,
+          craftable: true,
+          recipe: {
+            resourceIngredients: [{ resource: resource.id, quantity: index + 1 }],
+            coins: index,
+          },
+        }),
+      )
       weapons.push(await fixtures.create('weapons', named(index)))
     }
     for (const mobile of [false, true]) {
@@ -41,10 +52,18 @@ test('equipment catalogs, complete sets, navigation and empty states across them
       await expect(hazmats.getByRole('link')).toHaveText([hazmat.name])
       await page.getByRole('link', { name: set.name, exact: true }).click()
       await expect(page).toHaveURL(publicRecordURL('equipment-sets', set.slug)!)
-      await expect(page.getByRole('region', { name: 'Состав сета' }).getByRole('link')).toHaveText(
-        [...parts].reverse().map((p) => p.name),
-      )
+      await expect(
+        page.getByRole('region', { name: 'Состав сета' }).getByRole('heading', { level: 3 }),
+      ).toHaveText([...parts].reverse().map((p) => p.name))
       await expect(page.getByRole('heading', { name: 'Как скрафтить' })).toHaveCount(0)
+      const total = page.getByRole('region', { name: 'Всего для крафта сета' })
+      await expect(total.getByRole('link')).toHaveCount(1)
+      await expect(total).toContainText('Количество: 78')
+      await expect(total).toContainText('Стоимость в монетах: 66')
+      await expect(total.getByRole('link')).toHaveAttribute(
+        'href',
+        publicRecordURL('resources', resource.slug)!,
+      )
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       )
@@ -52,7 +71,13 @@ test('equipment catalogs, complete sets, navigation and empty states across them
         path: `test-results/set-${mobile ? 'mobile-dark' : 'desktop-light'}.png`,
         fullPage: true,
       })
-      await page.getByRole('link', { name: parts[0].name, exact: true }).click()
+      await expect(page.locator('article a[href^="/clothing/"]')).toHaveCount(0)
+      await expect(page.getByRole('region', { name: 'Состав сета' }).getByRole('link')).toHaveCount(
+        12,
+      )
+      await total.getByRole('link').click()
+      await expect(page).toHaveURL(publicRecordURL('resources', resource.slug)!)
+      await page.goto(publicRecordURL('clothing', parts[0].slug)!)
       await page.getByRole('link', { name: set.name, exact: true }).click()
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(set.name)
       await page.goto(publicRecordURL('clothing', hazmat.slug)!)

@@ -22,6 +22,7 @@ import {
 import { publicRecordURL } from '../../src/lib/public-record-url'
 import { ResourceCatalog } from '../../src/components/public/resource-catalog'
 import { ResourceDetails } from '../../src/components/public/item-detail'
+import { SetDetails } from '../../src/components/public/set-detail'
 
 let api: Payload
 let fixtures: ModelFixtures
@@ -53,6 +54,81 @@ afterAll(async () => {
 })
 
 describe('public item pages through real Payload/PostgreSQL', () => {
+  it('tolerates missing relationships and ignores repeated parts, ingredient rows and loaded resources', async () => {
+    const part = {
+      id: 2,
+      name: 'Part',
+      slug: 'part',
+      craftable: true,
+      recipe: {
+        coins: 7,
+        resourceIngredients: [
+          { resource: 3, quantity: 2 },
+          { resource: { id: 3 }, quantity: 2 },
+          { resource: null, quantity: 1 },
+          { resource: 99, quantity: 4 },
+        ],
+      },
+    }
+    const find = vi.fn(async ({ collection }: { collection: string }) => ({
+      docs:
+        collection === 'equipment-sets'
+          ? [{ id: 1, name: 'Set', slug: 'set' }]
+          : collection === 'clothing'
+            ? [part, part]
+            : collection === 'resources'
+              ? [
+                  { id: 3, name: 'Resource', slug: 'resource' },
+                  { id: 3, name: 'Resource', slug: 'resource' },
+                ]
+              : [],
+      hasNextPage: false,
+    }))
+    const detail = (await getSetDetail({ find } as unknown as Payload, 'set'))!
+    expect(detail.parts).toHaveLength(1)
+    expect(detail.parts[0].missingIngredients).toBe(true)
+    expect(detail.incomplete).toBe(true)
+    expect(detail.totalRecipe.coins).toBe(7)
+    expect(detail.totalRecipe.ingredients).toHaveLength(1)
+    expect(detail.totalRecipe.ingredients[0].quantity).toBe(2)
+    find.mockRejectedValueOnce(new Error('Database unavailable'))
+    await expect(getSetDetail({ find } as unknown as Payload, 'set')).rejects.toThrow(
+      'Database unavailable',
+    )
+  })
+  it('adds shared set ingredients and coins across paginated parts and renders only resource links', async () => {
+    const resource = await fixtures.create('resources', named())
+    const other = await fixtures.create('resources', named())
+    const set = await fixtures.create('equipment-sets', named())
+    for (const quantity of [2, 3, 5]) {
+      await fixtures.create('clothing', {
+        ...named(),
+        equipmentSet: set.id,
+        craftable: true,
+        recipe: {
+          resourceIngredients: [
+            { resource: resource.id, quantity },
+            { resource: other.id, quantity: 1 },
+          ],
+          coins: quantity * 10,
+        },
+      })
+    }
+    await fixtures.create('clothing', { ...named(), equipmentSet: set.id })
+    const detail = (await getSetDetail(api, set.slug, 1))!
+    expect(detail.totalRecipe.coins).toBe(100)
+    expect(detail.totalRecipe.ingredients).toHaveLength(2)
+    expect(detail.totalRecipe.ingredients.find((item) => item.id === resource.id)?.quantity).toBe(
+      10,
+    )
+    expect(detail.totalRecipe.ingredients.find((item) => item.id === other.id)?.quantity).toBe(3)
+    expect(detail.incomplete).toBe(true)
+    const html = renderToStaticMarkup(createElement(SetDetails, { detail }))
+    expect(html).toContain(`href="${publicRecordURL('resources', resource.slug)}"`)
+    expect(html).toContain(`href="${publicRecordURL('resources', other.slug)}"`)
+    expect(html).not.toContain('href="/clothing/')
+    expect(html).toContain('Всего для крафта сета')
+  })
   it('returns a complete ordered catalog, batches shared images and excludes recipe payloads', async () => {
     const data = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==',

@@ -47,5 +47,17 @@ export const EventTimes: CollectionConfig = {
           'Вычисляются сервером при сохранении. До первого сохранения показан 0. Для хронологической сортировки запросов используйте minutes.',
       },
     },
+    {
+      name: 'usedInEvents',
+      label: 'Используется в ивентах',
+      type: 'ui',
+      admin: {
+        disableListColumn: true,
+        disableBulkEdit: true,
+        components: {
+          Field: '/components/admin/EventTimeEvents#EventTimeEvents',
+        },
+      },
+    },
   ],
 }
