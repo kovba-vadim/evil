@@ -7,6 +7,9 @@ import config from '@payload-config'
 import { getPublicEventDetail } from '@/queries/public-events'
 import { EventLaunchTimes } from '@/components/public/event-launch-times'
 import { EventRewards } from '@/components/public/events'
+import { playerSession } from '@/auth/players'
+import { getPlayerCooldowns } from '@/queries/player-cooldowns'
+import { PlayerCooldowns } from '@/components/public/player-cooldowns'
 export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   return getEntryMetadata('events', (await params).slug, 'Ивент')
@@ -16,6 +19,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const detail = await getPublicEventDetail(await getPayload({ config }), slug)
   if (!detail) notFound()
   const { event } = detail
+  const { payload, user } = await playerSession()
   return (
     <article className="max-w-4xl space-y-6">
       <Link href="/events" className="text-primary underline">
@@ -33,6 +37,19 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       </section>
       <EventLaunchTimes times={detail.times} initialNow={new Date().toISOString()} />
       <p>КД прохождения: {detail.cooldownMinutes} мин.</p>
+      {user ? (
+        <PlayerCooldowns
+          key={`${user.id}:${event.id}`}
+          eventID={event.id}
+          initial={await getPlayerCooldowns(payload, user, event.id)}
+          timeZone={user.timeZone}
+        />
+      ) : (
+        <p>
+          <Link href={`/login?returnTo=${encodeURIComponent(`/events/${slug}`)}`}>Войдите</Link>,
+          чтобы сохранять прохождения и личные КД.
+        </p>
+      )}
     </article>
   )
 }

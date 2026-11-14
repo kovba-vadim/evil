@@ -1,0 +1,57 @@
+.personal-cooldowns {
+  display: grid;
+  gap: 1rem;
+  margin-block: 2rem;
+  overflow-wrap: anywhere;
+  h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+  h3 {
+    font-weight: 600;
+  }
+  a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  &__list {
+    display: grid;
+    gap: 1rem;
+  }
+  &__item,
+  &__confirmation {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+  &__remaining {
+    font-variant-numeric: tabular-nums;
+  }
+  &__hint {
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+  &__button {
+    justify-self: start;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+  }
+  &__button--primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  &__button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+  &__button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+}

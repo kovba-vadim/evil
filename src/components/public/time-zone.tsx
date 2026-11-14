@@ -32,8 +32,8 @@ export function setTimeZone(zone: TimeZoneID) {
   } catch {}
   window.dispatchEvent(new Event(eventName))
 }
-export function useTimeZone() {
-  const zone = useSyncExternalStore(subscribe, snapshot, () => 'server' as const)
+export function useTimeZone(serverZone: TimeZoneID = 'server') {
+  const zone = useSyncExternalStore(subscribe, snapshot, () => serverZone)
   useEffect(() => {
     try {
       const saved = localStorage.getItem(TIME_ZONE_STORAGE_KEY)

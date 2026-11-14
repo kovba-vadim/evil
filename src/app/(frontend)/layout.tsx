@@ -3,6 +3,7 @@ import { PublicShell } from '@/components/public/public-shell'
 import { ThemeProvider } from '@/components/public/theme-provider'
 import './styles.css'
 import './account.scss'
+import '@/components/public/player-cooldowns.scss'
 import { AccountNav } from '@/components/public/account-nav'
 
 export const metadata: Metadata = {

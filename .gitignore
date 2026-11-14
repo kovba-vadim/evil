@@ -15,6 +15,7 @@
 # next.js
 /.next/
 /.next-accounts-test/
+/.next-player-tests/
 /out/
 
 # production

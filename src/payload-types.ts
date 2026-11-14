@@ -70,6 +70,7 @@ export interface Config {
   collections: {
     users: User;
     players: Player;
+    'player-event-cooldowns': PlayerEventCooldown;
     media: Media;
     'ordinary-items': OrdinaryItem;
     resources: Resource;
@@ -97,6 +98,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     players: PlayersSelect<false> | PlayersSelect<true>;
+    'player-event-cooldowns': PlayerEventCooldownsSelect<false> | PlayerEventCooldownsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'ordinary-items': OrdinaryItemsSelect<false> | OrdinaryItemsSelect<true>;
     resources: ResourcesSelect<false> | ResourcesSelect<true>;
@@ -275,28 +277,25 @@ export interface Player {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
+ * via the `definition` "player-event-cooldowns".
  */
-export interface Media {
+export interface PlayerEventCooldown {
   id: number;
-  alt: string;
+  player: number | Player;
+  event: number | Event;
+  completedAt: string;
+  cooldownUntil: string;
+  cancelled: boolean;
+  revision: string;
+  requestID: string;
   updatedAt: string;
   createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ordinary-items".
+ * via the `definition` "events".
  */
-export interface OrdinaryItem {
+export interface Event {
   id: number;
   _order?: string | null;
   name: string;
@@ -305,7 +304,7 @@ export interface OrdinaryItem {
    */
   generateSlug?: boolean | null;
   slug: string;
-  image?: (number | null) | Media;
+  shortDescription?: string | null;
   description?: {
     root: {
       type: string;
@@ -321,10 +320,50 @@ export interface OrdinaryItem {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Выберите известные ежедневные времена по серверу UTC+3. Расписание не генерируется автоматически.
+   */
+  launchTimes?: (number | EventTime)[] | null;
+  coins: number;
+  /**
+   * Правило игры, а не интервал запусков и не личный таймер.
+   */
+  cooldownMinutes: number;
+  rewards?:
+    | {
+        resource: number | Resource;
+        /**
+         * 0 — кастомный предмет может не выпасть.
+         */
+        minQuantity: number;
+        maxQuantity: number;
+        id?: string | null;
+      }[]
+    | null;
   seo?: {
     title?: string | null;
     description?: string | null;
   };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Ежедневное время по серверу UTC+3, без календарной даты.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-times".
+ */
+export interface EventTime {
+  id: number;
+  _order?: string | null;
+  /**
+   * От 00:00 до 23:59. Например, 05:25. Вводите время вручную.
+   */
+  time: string;
+  /**
+   * Вычисляются сервером при сохранении. До первого сохранения показан 0. Для хронологической сортировки запросов используйте minutes.
+   */
+  minutes: number;
   updatedAt: string;
   createdAt: string;
 }
@@ -378,6 +417,61 @@ export interface Resource {
       | null;
     coins?: number | null;
   };
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ordinary-items".
+ */
+export interface OrdinaryItem {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   seo?: {
     title?: string | null;
     description?: string | null;
@@ -540,82 +634,6 @@ export interface Weapon {
       | null;
     coins?: number | null;
   };
-  seo?: {
-    title?: string | null;
-    description?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Ежедневное время по серверу UTC+3, без календарной даты.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-times".
- */
-export interface EventTime {
-  id: number;
-  _order?: string | null;
-  /**
-   * От 00:00 до 23:59. Например, 05:25. Вводите время вручную.
-   */
-  time: string;
-  /**
-   * Вычисляются сервером при сохранении. До первого сохранения показан 0. Для хронологической сортировки запросов используйте minutes.
-   */
-  minutes: number;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "events".
- */
-export interface Event {
-  id: number;
-  _order?: string | null;
-  name: string;
-  /**
-   * Слаг новой записи автоматически заполняется из названия.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  shortDescription?: string | null;
-  description?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Выберите известные ежедневные времена по серверу UTC+3. Расписание не генерируется автоматически.
-   */
-  launchTimes?: (number | EventTime)[] | null;
-  coins: number;
-  /**
-   * Правило игры, а не интервал запусков и не личный таймер.
-   */
-  cooldownMinutes: number;
-  rewards?:
-    | {
-        resource: number | Resource;
-        /**
-         * 0 — кастомный предмет может не выпасть.
-         */
-        minQuantity: number;
-        maxQuantity: number;
-        id?: string | null;
-      }[]
-    | null;
   seo?: {
     title?: string | null;
     description?: string | null;
@@ -795,6 +813,10 @@ export interface PayloadLockedDocument {
         value: number | Player;
       } | null)
     | ({
+        relationTo: 'player-event-cooldowns';
+        value: number | PlayerEventCooldown;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -939,6 +961,21 @@ export interface PlayersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-event-cooldowns_select".
+ */
+export interface PlayerEventCooldownsSelect<T extends boolean = true> {
+  player?: T;
+  event?: T;
+  completedAt?: T;
+  cooldownUntil?: T;
+  cancelled?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
