@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/public/theme-provider'
 import './styles.css'
 import './account.scss'
 import '@/components/public/player-cooldowns.scss'
+import '@/components/public/player-reminders.scss'
 import { AccountNav } from '@/components/public/account-nav'
 
 export const metadata: Metadata = {

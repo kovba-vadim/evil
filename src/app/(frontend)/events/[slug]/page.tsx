@@ -10,6 +10,8 @@ import { EventRewards } from '@/components/public/events'
 import { playerSession } from '@/auth/players'
 import { getPlayerCooldowns } from '@/queries/player-cooldowns'
 import { PlayerCooldowns } from '@/components/public/player-cooldowns'
+import { PlayerReminders } from '@/components/public/player-reminders'
+import { getPlayerReminders } from '@/queries/player-reminders'
 export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   return getEntryMetadata('events', (await params).slug, 'Ивент')
@@ -37,6 +39,21 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       </section>
       <EventLaunchTimes times={detail.times} initialNow={new Date().toISOString()} />
       <p>КД прохождения: {detail.cooldownMinutes} мин.</p>
+      {user ? (
+        <PlayerReminders
+          key={`reminders:${user.id}:${event.id}`}
+          initial={await getPlayerReminders(payload, user, event.id)}
+          event={{ id: event.id, name: event.name }}
+          timeZone={user.timeZone}
+        />
+      ) : (
+        <p>
+          <Link href={`/login?returnTo=${encodeURIComponent(`/events/${slug}`)}`}>
+            Войдите, чтобы настроить напоминание
+          </Link>
+          . Отправка сообщений пока не подключена.
+        </p>
+      )}
       {user ? (
         <PlayerCooldowns
           key={`${user.id}:${event.id}`}

@@ -1,0 +1,102 @@
+.player-reminders,
+.reminder-dialog {
+  overflow-wrap: anywhere;
+  h2,
+  h3,
+  h4 {
+    font-weight: 600;
+  }
+  h2 {
+    font-size: 1.3rem;
+  }
+  h3 {
+    font-size: 1.1rem;
+    margin-block: 1rem 0.75rem;
+  }
+  a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  input[type='checkbox'] {
+    margin-right: 0.4rem;
+    accent-color: var(--primary);
+  }
+}
+.player-reminders {
+  display: grid;
+  gap: 1rem;
+  margin-block: 2rem;
+  &__field {
+    display: grid;
+    gap: 0.4rem;
+  }
+  &__field input,
+  &__field select {
+    min-height: 2.75rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--input);
+    border-radius: 0.5rem;
+    background: var(--background);
+    color: var(--foreground);
+  }
+  &__button {
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    justify-self: start;
+  }
+  &__button--primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  &__button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  &__button:focus-visible,
+  &__field input:focus-visible,
+  &__field select:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  &__list {
+    display: grid;
+    gap: 1rem;
+  }
+  &__item,
+  &__play {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+  &__preview {
+    padding: 0.75rem;
+    border-left: 3px solid var(--primary);
+  }
+}
+.reminder-dialog {
+  padding: 1.5rem;
+  overflow-y: auto;
+  gap: 1rem;
+  &__title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    padding-right: 1.5rem;
+  }
+  &__form,
+  &__proposal {
+    display: grid;
+    gap: 1rem;
+  }
+}

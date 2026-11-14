@@ -8,6 +8,8 @@ import sharp from 'sharp'
 import { Users } from './collections/Users'
 import { Players } from './collections/Players'
 import { PlayerEventCooldowns } from './collections/PlayerEventCooldowns'
+import { PlayerEventReminders } from './collections/PlayerEventReminders'
+import { PlayerPlaySessions } from './collections/PlayerPlaySessions'
 import { authenticated } from './access/authenticated'
 import { Media } from './collections/Media'
 import { OrdinaryItems } from './collections/OrdinaryItems'
@@ -52,6 +54,8 @@ export default buildConfig({
     Users,
     Players,
     PlayerEventCooldowns,
+    PlayerEventReminders,
+    PlayerPlaySessions,
     Media,
     OrdinaryItems,
     Resources,

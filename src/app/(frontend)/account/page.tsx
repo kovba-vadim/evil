@@ -4,6 +4,8 @@ import { AccountForm } from '@/components/public/account-form'
 import { getPageMetadata } from '@/queries/public-seo'
 import { getPlayerCooldowns } from '@/queries/player-cooldowns'
 import { PlayerCooldowns } from '@/components/public/player-cooldowns'
+import { PlayerReminders } from '@/components/public/player-reminders'
+import { getPlayerReminders } from '@/queries/player-reminders'
 
 export const dynamic = 'force-dynamic'
 export async function generateMetadata() {
@@ -15,6 +17,11 @@ export default async function AccountPage() {
   return (
     <section className="account">
       <h1>Личный кабинет</h1>
+      <PlayerReminders
+        key={`reminders:${user.id}`}
+        initial={await getPlayerReminders(payload, user)}
+        timeZone={user.timeZone}
+      />
       <PlayerCooldowns
         key={user.id}
         initial={await getPlayerCooldowns(payload, user)}

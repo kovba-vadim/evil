@@ -160,6 +160,11 @@ test('personal cooldown lifecycle persists across sessions and devices with priv
     await expect(second.getByText('Активных личных КД нет.')).toBeVisible()
     await page.goto(`/events/${event.slug}`)
     await page.getByRole('button', { name: 'Прошёл', exact: true }).click()
+    await expect(
+      page
+        .getByRole('region', { name: 'Мой КД ивента', exact: true })
+        .getByText('Осталось:', { exact: false }),
+    ).toBeVisible()
     const again = (await (await context.request.get(`${endpoint}?eventID=${event.id}`)).json())
       .records[0]
     await api.update({

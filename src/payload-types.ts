@@ -71,6 +71,8 @@ export interface Config {
     users: User;
     players: Player;
     'player-event-cooldowns': PlayerEventCooldown;
+    'player-event-reminders': PlayerEventReminder;
+    'player-play-sessions': PlayerPlaySession;
     media: Media;
     'ordinary-items': OrdinaryItem;
     resources: Resource;
@@ -99,6 +101,8 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     players: PlayersSelect<false> | PlayersSelect<true>;
     'player-event-cooldowns': PlayerEventCooldownsSelect<false> | PlayerEventCooldownsSelect<true>;
+    'player-event-reminders': PlayerEventRemindersSelect<false> | PlayerEventRemindersSelect<true>;
+    'player-play-sessions': PlayerPlaySessionsSelect<false> | PlayerPlaySessionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'ordinary-items': OrdinaryItemsSelect<false> | OrdinaryItemsSelect<true>;
     resources: ResourcesSelect<false> | ResourcesSelect<true>;
@@ -481,6 +485,39 @@ export interface OrdinaryItem {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-event-reminders".
+ */
+export interface PlayerEventReminder {
+  id: number;
+  player: number | Player;
+  event: number | Event;
+  kind: 'once' | 'regular';
+  leadMinutes: number;
+  includeCooldown: boolean;
+  enabled: boolean;
+  launchAt?: string | null;
+  remindAt?: string | null;
+  revision: string;
+  requestID: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-play-sessions".
+ */
+export interface PlayerPlaySession {
+  id: number;
+  player: number | Player;
+  startedAt: string;
+  endsAt: string;
+  revision: string;
+  requestID: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "equipment-sets".
  */
 export interface EquipmentSet {
@@ -817,6 +854,14 @@ export interface PayloadLockedDocument {
         value: number | PlayerEventCooldown;
       } | null)
     | ({
+        relationTo: 'player-event-reminders';
+        value: number | PlayerEventReminder;
+      } | null)
+    | ({
+        relationTo: 'player-play-sessions';
+        value: number | PlayerPlaySession;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -972,6 +1017,37 @@ export interface PlayerEventCooldownsSelect<T extends boolean = true> {
   completedAt?: T;
   cooldownUntil?: T;
   cancelled?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-event-reminders_select".
+ */
+export interface PlayerEventRemindersSelect<T extends boolean = true> {
+  player?: T;
+  event?: T;
+  kind?: T;
+  leadMinutes?: T;
+  includeCooldown?: T;
+  enabled?: T;
+  launchAt?: T;
+  remindAt?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-play-sessions_select".
+ */
+export interface PlayerPlaySessionsSelect<T extends boolean = true> {
+  player?: T;
+  startedAt?: T;
+  endsAt?: T;
   revision?: T;
   requestID?: T;
   updatedAt?: T;

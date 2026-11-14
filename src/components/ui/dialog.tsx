@@ -6,11 +6,13 @@ import { cn } from '@/lib/utils'
 export const Dialog = DialogPrimitive.Root
 export const DialogTitle = DialogPrimitive.Title
 export const DialogDescription = DialogPrimitive.Description
+export const DialogTrigger = DialogPrimitive.Trigger
 export function DialogContent({
   children,
   className,
+  closeLabel = 'Закрыть поиск',
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & { closeLabel?: string }) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/50" />
@@ -24,7 +26,7 @@ export function DialogContent({
         {children}
         <DialogPrimitive.Close className="absolute top-3 right-3 rounded-sm p-1 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
           <XIcon className="size-4" />
-          <span className="sr-only">Закрыть поиск</span>
+          <span className="sr-only">{closeLabel}</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
