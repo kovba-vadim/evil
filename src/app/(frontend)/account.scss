@@ -1,0 +1,90 @@
+.account {
+  max-width: 32rem;
+  margin-inline: auto;
+}
+.account p {
+  overflow-wrap: anywhere;
+}
+.account h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+.account h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-block: 2rem 1rem;
+}
+.account-form {
+  display: grid;
+  gap: 1rem;
+}
+.account-form__field {
+  display: grid;
+  gap: 0.4rem;
+}
+.account-form__field input,
+.account-form__field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--input);
+  border-radius: 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+}
+.account-form__field input:focus-visible,
+.account-form__field select:focus-visible,
+.account-form__button:focus-visible,
+.account-nav a:focus-visible,
+.account-nav button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.account-form__button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+}
+.account-form__button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.account-form__message {
+  overflow-wrap: anywhere;
+}
+.account-form__message:empty {
+  display: none;
+}
+.account-form__links,
+.account-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+.account-form a,
+.account-nav a,
+.account-nav button {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.account-nav {
+  margin-left: auto;
+  font-size: 0.875rem;
+}
+.account-nav__logout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+@media (max-width: 420px) {
+  .account-nav {
+    gap: 0.5rem;
+    font-size: 0.75rem;
+  }
+}

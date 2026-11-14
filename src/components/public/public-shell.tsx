@@ -10,7 +10,13 @@ import { AppSidebar } from './app-sidebar'
 import { navigation } from './navigation'
 import { ThemeToggle } from './theme-toggle'
 
-function ShellContent({ children }: { children: React.ReactNode }) {
+function ShellContent({
+  children,
+  accountNav,
+}: {
+  children: React.ReactNode
+  accountNav?: React.ReactNode
+}) {
   const pathname = usePathname()
   const [searchOpen, setSearchOpen] = useState(false)
   const returnFocus = useRef<HTMLElement | null>(null)
@@ -39,8 +45,18 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   }, [searchOpen, openSearch])
   const { isMobile, openMobile, open, state } = useSidebar()
   const title =
+    (
+      {
+        '/account': 'Личный кабинет',
+        '/login': 'Вход',
+        '/register': 'Регистрация',
+        '/forgot-password': 'Восстановление пароля',
+        '/reset-password': 'Новый пароль',
+      } as Record<string, string>
+    )[pathname] ??
     navigation.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
-      ?.title ?? (pathname.startsWith('/ordinary-resources/') ? 'Обычный ресурс' : 'Главная')
+      ?.title ??
+    (pathname.startsWith('/ordinary-resources/') ? 'Обычный ресурс' : 'Главная')
   return (
     <>
       <AppSidebar onSearch={openSearch} />
@@ -58,7 +74,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
             EvilIsland
           </Link>
           <span className="hidden text-sm text-muted-foreground md:inline">{title}</span>
-          <div className="ml-auto">
+          {accountNav}
+          <div className={accountNav ? undefined : 'ml-auto'}>
             <ThemeToggle />
           </div>
         </header>
@@ -70,10 +87,16 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function PublicShell({ children }: { children: React.ReactNode }) {
+export function PublicShell({
+  children,
+  accountNav,
+}: {
+  children: React.ReactNode
+  accountNav?: React.ReactNode
+}) {
   return (
     <SidebarProvider>
-      <ShellContent>{children}</ShellContent>
+      <ShellContent accountNav={accountNav}>{children}</ShellContent>
     </SidebarProvider>
   )
 }

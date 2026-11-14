@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
 const nextConfig: NextConfig = {
+  distDir: process.env.EVIL_ACCOUNT_BROWSER_TEST === 'true' ? '.next/accounts-test' : '.next',
   images: {
     localPatterns: [
       {

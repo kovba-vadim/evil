@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
 import { Users } from './collections/Users'
+import { Players } from './collections/Players'
+import { authenticated } from './access/authenticated'
 import { Media } from './collections/Media'
 import { OrdinaryItems } from './collections/OrdinaryItems'
 import { Resources } from './collections/Resources'
@@ -24,6 +26,21 @@ const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
 export default buildConfig({
+  folders: {
+    collectionOverrides: [
+      ({ collection }) => ({
+        ...collection,
+        access: {
+          ...collection.access,
+          create: authenticated,
+          read: authenticated,
+          update: authenticated,
+          delete: authenticated,
+          readVersions: authenticated,
+        },
+      }),
+    ],
+  },
   admin: {
     user: Users.slug,
     importMap: {
@@ -32,6 +49,7 @@ export default buildConfig({
   },
   collections: [
     Users,
+    Players,
     Media,
     OrdinaryItems,
     Resources,

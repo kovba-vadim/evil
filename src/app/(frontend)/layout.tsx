@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { PublicShell } from '@/components/public/public-shell'
 import { ThemeProvider } from '@/components/public/theme-provider'
 import './styles.css'
+import './account.scss'
+import { AccountNav } from '@/components/public/account-nav'
 
 export const metadata: Metadata = {
   title: { default: 'EvilIsland', template: '%s — EvilIsland' },
@@ -19,7 +21,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           >
             Перейти к содержимому
           </a>
-          <PublicShell>{children}</PublicShell>
+          <PublicShell accountNav={<AccountNav />}>{children}</PublicShell>
         </ThemeProvider>
       </body>
     </html>

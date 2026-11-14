@@ -64,10 +64,12 @@ export type SupportedTimezones =
 export interface Config {
   auth: {
     users: UserAuthOperations;
+    players: PlayerAuthOperations;
   };
   blocks: {};
   collections: {
     users: User;
+    players: Player;
     media: Media;
     'ordinary-items': OrdinaryItem;
     resources: Resource;
@@ -94,6 +96,7 @@ export interface Config {
   };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
+    players: PlayersSelect<false> | PlayersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'ordinary-items': OrdinaryItemsSelect<false> | OrdinaryItemsSelect<true>;
     resources: ResourcesSelect<false> | ResourcesSelect<true>;
@@ -116,6 +119,11 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     homepage: Homepage;
+    'login-page': LoginPage;
+    'register-page': RegisterPage;
+    'account-page': AccountPage;
+    'forgot-password-page': ForgotPasswordPage;
+    'reset-password-page': ResetPasswordPage;
     'bosses-page': BossesPage;
     'events-page': EventsPage;
     'event-launches-page': EventLaunchesPage;
@@ -127,6 +135,11 @@ export interface Config {
   };
   globalsSelect: {
     homepage: HomepageSelect<false> | HomepageSelect<true>;
+    'login-page': LoginPageSelect<false> | LoginPageSelect<true>;
+    'register-page': RegisterPageSelect<false> | RegisterPageSelect<true>;
+    'account-page': AccountPageSelect<false> | AccountPageSelect<true>;
+    'forgot-password-page': ForgotPasswordPageSelect<false> | ForgotPasswordPageSelect<true>;
+    'reset-password-page': ResetPasswordPageSelect<false> | ResetPasswordPageSelect<true>;
     'bosses-page': BossesPageSelect<false> | BossesPageSelect<true>;
     'events-page': EventsPageSelect<false> | EventsPageSelect<true>;
     'event-launches-page': EventLaunchesPageSelect<false> | EventLaunchesPageSelect<true>;
@@ -140,13 +153,31 @@ export interface Config {
   widgets: {
     collections: CollectionsWidget;
   };
-  user: User;
+  user: User | Player;
   jobs: {
     tasks: unknown;
     workflows: unknown;
   };
 }
 export interface UserAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
+  };
+}
+export interface PlayerAuthOperations {
   forgotPassword: {
     email: string;
     password: string;
@@ -189,6 +220,58 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "players".
+ */
+export interface Player {
+  id: number;
+  nickname: string;
+  timeZone:
+    | 'server'
+    | 'Europe/London'
+    | 'Europe/Berlin'
+    | 'Europe/Paris'
+    | 'Europe/Warsaw'
+    | 'Europe/Kyiv'
+    | 'Europe/Vilnius'
+    | 'Europe/Minsk'
+    | 'Europe/Moscow'
+    | 'Europe/Istanbul'
+    | 'Asia/Tbilisi'
+    | 'Asia/Yerevan'
+    | 'Asia/Dubai'
+    | 'Asia/Yekaterinburg'
+    | 'Asia/Almaty'
+    | 'Asia/Novosibirsk'
+    | 'Asia/Bangkok'
+    | 'Asia/Irkutsk'
+    | 'Asia/Vladivostok'
+    | 'Asia/Seoul'
+    | 'America/New_York'
+    | 'America/Los_Angeles';
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  _verified?: boolean | null;
+  _verificationToken?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'players';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -708,6 +791,10 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'players';
+        value: number | Player;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -752,10 +839,15 @@ export interface PayloadLockedDocument {
         value: number | Boss;
       } | null);
   globalSlug?: string | null;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: number | User;
+      }
+    | {
+        relationTo: 'players';
+        value: number | Player;
+      };
   updatedAt: string;
   createdAt: string;
 }
@@ -765,10 +857,15 @@ export interface PayloadLockedDocument {
  */
 export interface PayloadPreference {
   id: number;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: number | User;
+      }
+    | {
+        relationTo: 'players';
+        value: number | Player;
+      };
   key?: string | null;
   value?:
     | {
@@ -806,6 +903,33 @@ export interface UsersSelect<T extends boolean = true> {
   salt?: T;
   hash?: T;
   resetPasswordRequestedAt?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "players_select".
+ */
+export interface PlayersSelect<T extends boolean = true> {
+  nickname?: T;
+  timeZone?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  resetPasswordRequestedAt?: T;
+  _verified?: T;
+  _verificationToken?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:
@@ -1191,6 +1315,71 @@ export interface Homepage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "login-page".
+ */
+export interface LoginPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "register-page".
+ */
+export interface RegisterPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "account-page".
+ */
+export interface AccountPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "forgot-password-page".
+ */
+export interface ForgotPasswordPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reset-password-page".
+ */
+export interface ResetPasswordPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "bosses-page".
  */
 export interface BossesPage {
@@ -1301,6 +1490,81 @@ export interface HomepageSelect<T extends boolean = true> {
   title?: T;
   description?: T;
   image?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "login-page_select".
+ */
+export interface LoginPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "register-page_select".
+ */
+export interface RegisterPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "account-page_select".
+ */
+export interface AccountPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "forgot-password-page_select".
+ */
+export interface ForgotPasswordPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reset-password-page_select".
+ */
+export interface ResetPasswordPageSelect<T extends boolean = true> {
   seo?:
     | T
     | {
