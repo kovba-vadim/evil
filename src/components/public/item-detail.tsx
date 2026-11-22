@@ -8,7 +8,10 @@ import type {
   ResourceDetail,
 } from '@/queries/public-items'
 import { publicRecordURL } from '@/lib/public-record-url'
+import type { ShopPurchaseData } from '@/lib/shop'
 import { ItemImage } from './item-image'
+import { ShopPurchase } from './shop-purchase'
+import { formatRewardQuantity } from './reward-labels'
 
 export function ItemHeading({
   item,
@@ -75,9 +78,6 @@ const useLabels = { resources: 'Кастомный предмет', clothing: '�
 export function ResourceDetails({ detail }: { detail: ResourceDetail }) {
   return (
     <article className="max-w-4xl space-y-9">
-      <Link href="/items" className="text-sm text-primary underline underline-offset-4">
-        Все кастомные предметы
-      </Link>
       <ItemHeading item={detail.item} />
       {detail.sources.length > 0 && (
         <section aria-labelledby="sources-title" className="space-y-4">
@@ -106,10 +106,9 @@ export function ResourceDetails({ detail }: { detail: ResourceDetail }) {
                   </p>
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  Количество:{' '}
-                  {source.kind === 'events'
-                    ? `${source.minimum}–${source.maximum}`
-                    : source.minimum}
+                  {source.kind === 'quests'
+                    ? `Количество: ${source.minimum}`
+                    : formatRewardQuantity(source.minimum, source.maximum)}
                 </span>
               </li>
             ))}
@@ -146,6 +145,7 @@ export function ResourceDetails({ detail }: { detail: ResourceDetail }) {
           </ul>
         </section>
       )}
+      <ShopPurchase shop={detail.shop} />
     </article>
   )
 }
@@ -153,11 +153,12 @@ export function ResourceDetails({ detail }: { detail: ResourceDetail }) {
 export function OrdinaryDetails({
   item,
 }: {
-  item: ItemCard & { description: OrdinaryItem['description'] }
+  item: ItemCard & { description: OrdinaryItem['description']; shop: ShopPurchaseData | null }
 }) {
   return (
     <article className="max-w-3xl">
       <ItemHeading item={item} />
+      <ShopPurchase shop={item.shop} />
     </article>
   )
 }
@@ -178,6 +179,7 @@ export function EquipmentDetails({ detail }: { detail: EquipmentDetail }) {
         </p>
       )}
       {detail.recipe && <Recipe recipe={detail.recipe} />}
+      <ShopPurchase shop={detail.shop} />
     </article>
   )
 }

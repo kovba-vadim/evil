@@ -1,3 +1,5 @@
+import { shopFields } from '../fields/shopFields'
+import { hideInactiveShop, validateShop } from '../hooks/shop'
 import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
@@ -17,12 +19,13 @@ export const Weapons: CollectionConfig = {
     update: authenticated,
     delete: authenticated,
   },
-  hooks: { beforeChange: [validateRecipe], afterRead: [hideInactivePublicRecipe] },
+  hooks: { beforeChange: [validateRecipe, validateShop], afterRead: [hideInactivePublicRecipe, hideInactiveShop] },
   fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
     { name: 'description', label: 'Описание и характеристики', type: 'richText' },
     ...recipeFields(),
+    shopFields(),
   ]),
 }

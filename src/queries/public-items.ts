@@ -1,5 +1,6 @@
 import type { DataFromCollectionSlug, Payload, TypedCollectionSelect, Where } from 'payload'
 import type { Boss, Clothing, Media, OrdinaryItem, Resource } from '../payload-types'
+import { isStandaloneClothing, publicShopPurchase, type ShopPurchaseData } from '../lib/shop'
 
 type PublicCollection =
   | 'equipment-sets'
@@ -40,6 +41,7 @@ export interface ResourceDetail {
   sources: RewardSource[]
   recipe: PublicRecipe | null
   uses: CraftUse[]
+  shop: ShopPurchaseData | null
 }
 
 /** Small projection, depth zero, no native joins, all transport pages. */
@@ -140,7 +142,7 @@ export async function getOrdinaryItem(payload: Payload, slug: string, pageSize =
   const result = await payload.find({
     collection: 'ordinary-items',
     where: { slug: { equals: slug } },
-    select: { name: true, slug: true, image: true, description: true },
+    select: { name: true, slug: true, image: true, description: true, shop: true },
     limit: 1,
     depth: 0,
     overrideAccess: false,
@@ -148,7 +150,11 @@ export async function getOrdinaryItem(payload: Payload, slug: string, pageSize =
   })
   const doc = result.docs[0]
   if (!doc) return null
-  return { ...(await cards(payload, [doc], pageSize))[0], description: doc.description }
+  return {
+    ...(await cards(payload, [doc], pageSize))[0],
+    description: doc.description,
+    shop: publicShopPurchase(doc.shop),
+  }
 }
 
 export async function getResourceDetail(
@@ -167,6 +173,7 @@ export async function getResourceDetail(
       description: true,
       craftable: true,
       recipe: true,
+      shop: true,
     },
     limit: 1,
     depth: 0,
@@ -248,6 +255,7 @@ export async function getResourceDetail(
     sources,
     recipe,
     uses: uses.flat(),
+    shop: publicShopPurchase(doc.shop),
   }
 }
 
@@ -311,6 +319,7 @@ export interface EquipmentDetail {
   recipe: PublicRecipe | null
   setName: string | null
   setSlug: string | null
+  shop: ShopPurchaseData | null
 }
 
 export async function getEquipmentDetail(
@@ -328,7 +337,8 @@ export async function getEquipmentDetail(
       description: true,
       craftable: true,
       recipe: true,
-      ...(collection === 'clothing' ? { equipmentSet: true } : {}),
+      shop: true,
+      ...(collection === 'clothing' ? { equipmentSet: true, category: true } : {}),
     },
     limit: 1,
     depth: 0,
@@ -357,7 +367,16 @@ export async function getEquipmentDetail(
     setName = set.name
     setSlug = set.slug
   }
-  return { item: { ...itemCards[0], description: doc.description }, recipe, setName, setSlug }
+  return {
+    item: { ...itemCards[0], description: doc.description },
+    recipe,
+    setName,
+    setSlug,
+    shop:
+      collection === 'weapons' || isStandaloneClothing((doc as Clothing).category)
+        ? publicShopPurchase(doc.shop)
+        : null,
+  }
 }
 
 export async function getEquipmentCatalog(
@@ -370,7 +389,7 @@ export async function getEquipmentCatalog(
     payload,
     collection,
     { name: true, slug: true, image: true },
-    collection === 'clothing' ? { and: [where, { equipmentSet: { exists: false } }] } : where,
+    where,
     pageSize,
   )
   return cards(payload, docs, pageSize)
@@ -381,7 +400,7 @@ export async function getSetDetail(payload: Payload, slug: string, pageSize = 10
   const result = await payload.find({
     collection: 'equipment-sets',
     where: { slug: { equals: slug } },
-    select: { name: true, slug: true, image: true, description: true },
+    select: { name: true, slug: true, image: true, description: true, shop: true },
     limit: 1,
     depth: 0,
     joins: { parts: false },
@@ -402,9 +421,7 @@ export async function getSetDetail(payload: Payload, slug: string, pageSize = 10
   const uniqueParts = [...new Map(parts.map((part) => [part.id, part])).values()]
   const resourceID = (value: number | { id: number } | null | undefined) =>
     value == null ? null : idOf(value)
-  const resources = await byIDs(
-    payload,
-    'resources',
+  const ingredientIDs = new Set(
     uniqueParts.flatMap((part) =>
       part.craftable
         ? (part.recipe?.resourceIngredients ?? []).flatMap((row) => {
@@ -413,9 +430,16 @@ export async function getSetDetail(payload: Payload, slug: string, pageSize = 10
           })
         : [],
     ),
-    { name: true, slug: true, image: true },
-    pageSize,
   )
+  const resources = ingredientIDs.size
+    ? await all(
+        payload,
+        'resources',
+        { name: true, slug: true, image: true },
+        { id: { in: [...ingredientIDs] } },
+        pageSize,
+      )
+    : []
   const [resolved, ingredients] = await Promise.all([
     cards(payload, [doc, ...uniqueParts], pageSize),
     cards(payload, resources, pageSize),
@@ -457,7 +481,14 @@ export async function getSetDetail(payload: Payload, slug: string, pageSize = 10
   return {
     item: { ...resolved[0], description: doc.description },
     parts: partCards,
-    totalRecipe: { ingredients: [...totals.values()], coins },
+    totalRecipe: {
+      ingredients: [...lookup.keys()].flatMap((id) => {
+        const ingredient = totals.get(id)
+        return ingredient ? [ingredient] : []
+      }),
+      coins,
+    },
+    shop: publicShopPurchase(doc.shop),
     incomplete,
   }
 }

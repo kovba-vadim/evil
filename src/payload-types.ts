@@ -64,10 +64,16 @@ export type SupportedTimezones =
 export interface Config {
   auth: {
     users: UserAuthOperations;
+    players: PlayerAuthOperations;
   };
   blocks: {};
   collections: {
     users: User;
+    players: Player;
+    'player-event-cooldowns': PlayerEventCooldown;
+    'player-quest-cooldowns': PlayerQuestCooldown;
+    'player-event-reminders': PlayerEventReminder;
+    'player-play-sessions': PlayerPlaySession;
     media: Media;
     'ordinary-items': OrdinaryItem;
     resources: Resource;
@@ -94,6 +100,11 @@ export interface Config {
   };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
+    players: PlayersSelect<false> | PlayersSelect<true>;
+    'player-event-cooldowns': PlayerEventCooldownsSelect<false> | PlayerEventCooldownsSelect<true>;
+    'player-quest-cooldowns': PlayerQuestCooldownsSelect<false> | PlayerQuestCooldownsSelect<true>;
+    'player-event-reminders': PlayerEventRemindersSelect<false> | PlayerEventRemindersSelect<true>;
+    'player-play-sessions': PlayerPlaySessionsSelect<false> | PlayerPlaySessionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'ordinary-items': OrdinaryItemsSelect<false> | OrdinaryItemsSelect<true>;
     resources: ResourcesSelect<false> | ResourcesSelect<true>;
@@ -116,6 +127,11 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     homepage: Homepage;
+    'login-page': LoginPage;
+    'register-page': RegisterPage;
+    'account-page': AccountPage;
+    'forgot-password-page': ForgotPasswordPage;
+    'reset-password-page': ResetPasswordPage;
     'bosses-page': BossesPage;
     'events-page': EventsPage;
     'event-launches-page': EventLaunchesPage;
@@ -127,6 +143,11 @@ export interface Config {
   };
   globalsSelect: {
     homepage: HomepageSelect<false> | HomepageSelect<true>;
+    'login-page': LoginPageSelect<false> | LoginPageSelect<true>;
+    'register-page': RegisterPageSelect<false> | RegisterPageSelect<true>;
+    'account-page': AccountPageSelect<false> | AccountPageSelect<true>;
+    'forgot-password-page': ForgotPasswordPageSelect<false> | ForgotPasswordPageSelect<true>;
+    'reset-password-page': ResetPasswordPageSelect<false> | ResetPasswordPageSelect<true>;
     'bosses-page': BossesPageSelect<false> | BossesPageSelect<true>;
     'events-page': EventsPageSelect<false> | EventsPageSelect<true>;
     'event-launches-page': EventLaunchesPageSelect<false> | EventLaunchesPageSelect<true>;
@@ -140,13 +161,31 @@ export interface Config {
   widgets: {
     collections: CollectionsWidget;
   };
-  user: User;
+  user: User | Player;
   jobs: {
     tasks: unknown;
     workflows: unknown;
   };
 }
 export interface UserAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
+  };
+}
+export interface PlayerAuthOperations {
   forgotPassword: {
     email: string;
     password: string;
@@ -192,28 +231,77 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
+ * via the `definition` "players".
  */
-export interface Media {
+export interface Player {
   id: number;
-  alt: string;
+  nickname: string;
+  timeZone:
+    | 'server'
+    | 'Europe/London'
+    | 'Europe/Berlin'
+    | 'Europe/Paris'
+    | 'Europe/Warsaw'
+    | 'Europe/Kyiv'
+    | 'Europe/Vilnius'
+    | 'Europe/Minsk'
+    | 'Europe/Moscow'
+    | 'Europe/Istanbul'
+    | 'Asia/Tbilisi'
+    | 'Asia/Yerevan'
+    | 'Asia/Dubai'
+    | 'Asia/Yekaterinburg'
+    | 'Asia/Almaty'
+    | 'Asia/Novosibirsk'
+    | 'Asia/Bangkok'
+    | 'Asia/Irkutsk'
+    | 'Asia/Vladivostok'
+    | 'Asia/Seoul'
+    | 'America/New_York'
+    | 'America/Los_Angeles';
   updatedAt: string;
   createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  _verified?: boolean | null;
+  _verificationToken?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'players';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ordinary-items".
+ * via the `definition` "player-event-cooldowns".
  */
-export interface OrdinaryItem {
+export interface PlayerEventCooldown {
+  id: number;
+  player: number | Player;
+  event: number | Event;
+  completedAt: string;
+  cooldownUntil: string;
+  cancelled: boolean;
+  revision: string;
+  requestID: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events".
+ */
+export interface Event {
   id: number;
   _order?: string | null;
   name: string;
@@ -222,7 +310,7 @@ export interface OrdinaryItem {
    */
   generateSlug?: boolean | null;
   slug: string;
-  image?: (number | null) | Media;
+  shortDescription?: string | null;
   description?: {
     root: {
       type: string;
@@ -238,10 +326,54 @@ export interface OrdinaryItem {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Выберите известные ежедневные времена по серверу UTC+3. Расписание не генерируется автоматически.
+   */
+  launchTimes?: (number | EventTime)[] | null;
+  /**
+   * Расчётное время от запуска до окончания ивента. Ивент может закончиться раньше, если его прошли.
+   */
+  durationMinutes: number;
+  coins: number;
+  /**
+   * Правило игры, а не интервал запусков и не личный таймер.
+   */
+  cooldownMinutes: number;
+  rewards?:
+    | {
+        resource: number | Resource;
+        /**
+         * 0 — кастомный предмет может не выпасть.
+         */
+        minQuantity: number;
+        maxQuantity: number;
+        id?: string | null;
+      }[]
+    | null;
   seo?: {
     title?: string | null;
     description?: string | null;
   };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Ежедневное время по серверу UTC+3, без календарной даты.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-times".
+ */
+export interface EventTime {
+  id: number;
+  _order?: string | null;
+  /**
+   * От 00:00 до 23:59. Например, 05:25. Вводите время вручную.
+   */
+  time: string;
+  /**
+   * Вычисляются сервером при сохранении. До первого сохранения показан 0. Для хронологической сортировки запросов используйте minutes.
+   */
+  minutes: number;
   updatedAt: string;
   createdAt: string;
 }
@@ -295,10 +427,214 @@ export interface Resource {
       | null;
     coins?: number | null;
   };
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
   seo?: {
     title?: string | null;
     description?: string | null;
   };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ordinary-items".
+ */
+export interface OrdinaryItem {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  image?: (number | null) | Media;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-quest-cooldowns".
+ */
+export interface PlayerQuestCooldown {
+  id: number;
+  player: number | Player;
+  quest: number | Quest;
+  completedAt: string;
+  cooldownUntil: string;
+  cancelled: boolean;
+  revision: string;
+  requestID: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quests".
+ */
+export interface Quest {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Необязательно. Выберите одну категорию квеста.
+   */
+  category?: (number | null) | QuestCategory;
+  coins: number;
+  /**
+   * Сколько нужно собрать, добыть или выполнить для завершения квеста
+   */
+  requiredQuantity?: number | null;
+  /**
+   * Продолжительность в целых минутах. Пустое поле сохраняется как 0.
+   */
+  cooldown?: number | null;
+  /**
+   * Историческая колонка. Для КД квеста используется поле «КД прохождения (минуты)».
+   */
+  cooldownMinutes?: number | null;
+  rewards?:
+    | {
+        resource: number | Resource;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  ordinaryRewards?:
+    | {
+        item: number | OrdinaryItem;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quest-categories".
+ */
+export interface QuestCategory {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * Список определяется полем «Категория» у квестов.
+   */
+  quests?: {
+    docs?: (number | Quest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-event-reminders".
+ */
+export interface PlayerEventReminder {
+  id: number;
+  player: number | Player;
+  event: number | Event;
+  kind: 'once' | 'regular';
+  leadMinutes: number;
+  includeCooldown: boolean;
+  enabled: boolean;
+  launchAt?: string | null;
+  remindAt?: string | null;
+  revision: string;
+  requestID: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-play-sessions".
+ */
+export interface PlayerPlaySession {
+  id: number;
+  player: number | Player;
+  startedAt: string;
+  endsAt: string;
+  revision: string;
+  requestID: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -339,6 +675,11 @@ export interface EquipmentSet {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
   seo?: {
     title?: string | null;
     description?: string | null;
@@ -375,8 +716,9 @@ export interface Clothing {
     };
     [k: string]: unknown;
   } | null;
+  category: 'set' | 'hazmat' | 'ring';
   /**
-   * Для части комплекта выберите сет. Для хазмата оставьте пустым
+   * Выберите комплект, в который входит предмет.
    */
   equipmentSet?: (number | null) | EquipmentSet;
   craftable?: boolean | null;
@@ -399,6 +741,14 @@ export interface Clothing {
         }[]
       | null;
     coins?: number | null;
+  };
+  /**
+   * Перед переводом предмета в часть сета отключите покупку.
+   */
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
   };
   seo?: {
     title?: string | null;
@@ -457,175 +807,14 @@ export interface Weapon {
       | null;
     coins?: number | null;
   };
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
   seo?: {
     title?: string | null;
     description?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Ежедневное время по серверу UTC+3, без календарной даты.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-times".
- */
-export interface EventTime {
-  id: number;
-  _order?: string | null;
-  /**
-   * От 00:00 до 23:59. Например, 05:25. Вводите время вручную.
-   */
-  time: string;
-  /**
-   * Вычисляются сервером при сохранении. До первого сохранения показан 0. Для хронологической сортировки запросов используйте minutes.
-   */
-  minutes: number;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "events".
- */
-export interface Event {
-  id: number;
-  _order?: string | null;
-  name: string;
-  /**
-   * Слаг новой записи автоматически заполняется из названия.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  shortDescription?: string | null;
-  description?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Выберите известные ежедневные времена по серверу UTC+3. Расписание не генерируется автоматически.
-   */
-  launchTimes?: (number | EventTime)[] | null;
-  coins: number;
-  /**
-   * Правило игры, а не интервал запусков и не личный таймер.
-   */
-  cooldownMinutes: number;
-  rewards?:
-    | {
-        resource: number | Resource;
-        /**
-         * 0 — кастомный предмет может не выпасть.
-         */
-        minQuantity: number;
-        maxQuantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  seo?: {
-    title?: string | null;
-    description?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "quests".
- */
-export interface Quest {
-  id: number;
-  _order?: string | null;
-  name: string;
-  /**
-   * Слаг новой записи автоматически заполняется из названия.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  description?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Необязательно. Выберите одну категорию квеста.
-   */
-  category?: (number | null) | QuestCategory;
-  coins: number;
-  /**
-   * Сколько нужно собрать, добыть или выполнить для завершения квеста
-   */
-  requiredQuantity?: number | null;
-  /**
-   * Необязательно. Например, «6 часов» или «Раз в сутки». Справочная информация без персонального таймера.
-   */
-  cooldown?: string | null;
-  /**
-   * Служебное поле для безопасного переноса прежних значений. Колонку пока не удалять.
-   */
-  cooldownMinutes?: number | null;
-  rewards?:
-    | {
-        resource: number | Resource;
-        quantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  ordinaryRewards?:
-    | {
-        item: number | OrdinaryItem;
-        quantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  seo?: {
-    title?: string | null;
-    description?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "quest-categories".
- */
-export interface QuestCategory {
-  id: number;
-  _order?: string | null;
-  name: string;
-  /**
-   * Слаг новой записи автоматически заполняется из названия.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  /**
-   * Список определяется полем «Категория» у квестов.
-   */
-  quests?: {
-    docs?: (number | Quest)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
   };
   updatedAt: string;
   createdAt: string;
@@ -708,6 +897,22 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'players';
+        value: number | Player;
+      } | null)
+    | ({
+        relationTo: 'player-event-cooldowns';
+        value: number | PlayerEventCooldown;
+      } | null)
+    | ({
+        relationTo: 'player-event-reminders';
+        value: number | PlayerEventReminder;
+      } | null)
+    | ({
+        relationTo: 'player-play-sessions';
+        value: number | PlayerPlaySession;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -752,10 +957,15 @@ export interface PayloadLockedDocument {
         value: number | Boss;
       } | null);
   globalSlug?: string | null;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: number | User;
+      }
+    | {
+        relationTo: 'players';
+        value: number | Player;
+      };
   updatedAt: string;
   createdAt: string;
 }
@@ -765,10 +975,15 @@ export interface PayloadLockedDocument {
  */
 export interface PayloadPreference {
   id: number;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: number | User;
+      }
+    | {
+        relationTo: 'players';
+        value: number | Player;
+      };
   key?: string | null;
   value?:
     | {
@@ -818,6 +1033,94 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "players_select".
+ */
+export interface PlayersSelect<T extends boolean = true> {
+  nickname?: T;
+  timeZone?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  resetPasswordRequestedAt?: T;
+  _verified?: T;
+  _verificationToken?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-event-cooldowns_select".
+ */
+export interface PlayerEventCooldownsSelect<T extends boolean = true> {
+  player?: T;
+  event?: T;
+  completedAt?: T;
+  cooldownUntil?: T;
+  cancelled?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-quest-cooldowns_select".
+ */
+export interface PlayerQuestCooldownsSelect<T extends boolean = true> {
+  player?: T;
+  quest?: T;
+  completedAt?: T;
+  cooldownUntil?: T;
+  cancelled?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-event-reminders_select".
+ */
+export interface PlayerEventRemindersSelect<T extends boolean = true> {
+  player?: T;
+  event?: T;
+  kind?: T;
+  leadMinutes?: T;
+  includeCooldown?: T;
+  enabled?: T;
+  launchAt?: T;
+  remindAt?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-play-sessions_select".
+ */
+export interface PlayerPlaySessionsSelect<T extends boolean = true> {
+  player?: T;
+  startedAt?: T;
+  endsAt?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
@@ -845,6 +1148,13 @@ export interface OrdinaryItemsSelect<T extends boolean = true> {
   slug?: T;
   image?: T;
   description?: T;
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -885,6 +1195,13 @@ export interface ResourcesSelect<T extends boolean = true> {
             };
         coins?: T;
       };
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -906,6 +1223,13 @@ export interface EquipmentSetsSelect<T extends boolean = true> {
   image?: T;
   description?: T;
   parts?: T;
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -926,6 +1250,7 @@ export interface ClothingSelect<T extends boolean = true> {
   slug?: T;
   image?: T;
   description?: T;
+  category?: T;
   equipmentSet?: T;
   craftable?: T;
   recipe?:
@@ -946,6 +1271,13 @@ export interface ClothingSelect<T extends boolean = true> {
               id?: T;
             };
         coins?: T;
+      };
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
       };
   seo?:
     | T
@@ -987,6 +1319,13 @@ export interface WeaponsSelect<T extends boolean = true> {
             };
         coins?: T;
       };
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -1019,6 +1358,7 @@ export interface EventsSelect<T extends boolean = true> {
   shortDescription?: T;
   description?: T;
   launchTimes?: T;
+  durationMinutes?: T;
   coins?: T;
   cooldownMinutes?: T;
   rewards?:
@@ -1191,6 +1531,71 @@ export interface Homepage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "login-page".
+ */
+export interface LoginPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "register-page".
+ */
+export interface RegisterPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "account-page".
+ */
+export interface AccountPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "forgot-password-page".
+ */
+export interface ForgotPasswordPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reset-password-page".
+ */
+export interface ResetPasswordPage {
+  id: number;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "bosses-page".
  */
 export interface BossesPage {
@@ -1301,6 +1706,81 @@ export interface HomepageSelect<T extends boolean = true> {
   title?: T;
   description?: T;
   image?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "login-page_select".
+ */
+export interface LoginPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "register-page_select".
+ */
+export interface RegisterPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "account-page_select".
+ */
+export interface AccountPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "forgot-password-page_select".
+ */
+export interface ForgotPasswordPageSelect<T extends boolean = true> {
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reset-password-page_select".
+ */
+export interface ResetPasswordPageSelect<T extends boolean = true> {
   seo?:
     | T
     | {

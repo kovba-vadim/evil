@@ -32,8 +32,8 @@ export function setTimeZone(zone: TimeZoneID) {
   } catch {}
   window.dispatchEvent(new Event(eventName))
 }
-export function useTimeZone() {
-  const zone = useSyncExternalStore(subscribe, snapshot, () => 'server' as const)
+export function useTimeZone(serverZone: TimeZoneID = 'server') {
+  const zone = useSyncExternalStore(subscribe, snapshot, () => serverZone)
   useEffect(() => {
     try {
       const saved = localStorage.getItem(TIME_ZONE_STORAGE_KEY)
@@ -61,10 +61,16 @@ export function useServerClock(initialNow: string) {
   }, [initialNow])
   return Date.parse(now) >= Date.parse(initialNow) ? now : initialNow
 }
-export function TimeZoneSelect({ now }: { now: string }) {
+export function TimeZoneSelect({
+  now,
+  className = 'block max-w-lg space-y-2',
+}: {
+  now: string
+  className?: string
+}) {
   const zone = useTimeZone()
   return (
-    <label className="block max-w-lg space-y-2">
+    <label className={className}>
       <span className="text-sm font-medium">Часовой пояс</span>
       <select
         aria-label="Часовой пояс"

@@ -3,6 +3,7 @@ import type { getSetDetail } from '@/queries/public-items'
 import { publicRecordURL } from '@/lib/public-record-url'
 import { ItemHeading, Recipe } from './item-detail'
 import { ItemImage } from './item-image'
+import { ShopPurchase } from './shop-purchase'
 
 export function SetDetails({
   detail,
@@ -66,6 +67,7 @@ export function SetDetails({
           )}
         </div>
       )}
+      <ShopPurchase shop={detail.shop} />
     </article>
   )
 }

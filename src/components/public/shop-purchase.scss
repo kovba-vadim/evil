@@ -1,0 +1,30 @@
+.shop-purchase {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-start: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--card-foreground);
+
+  &:hover {
+    border-color: var(--primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+
+  &__title {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  &__note {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+}

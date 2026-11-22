@@ -1,0 +1,7 @@
+.event-launch-times__zone {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 32rem;
+}

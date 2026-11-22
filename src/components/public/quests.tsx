@@ -2,13 +2,14 @@ import Link from 'next/link'
 import type { PublicQuest } from '@/queries/public-quests'
 import { publicRecordURL } from '@/lib/public-record-url'
 import { questRewardKey, questRewardLabels } from '@/lib/quest-rewards'
+import { formatQuestCooldown } from '@/lib/quest-cooldown'
 export function QuestFacts({ quest }: { quest: PublicQuest }) {
   return (
     <div className="space-y-2 text-sm">
       {quest.category && <p>Категория: {quest.category.name}</p>}
       {quest.requiredQuantity !== null && <p>Необходимое количество: {quest.requiredQuantity}</p>}
       <p>Монеты: {quest.coins}</p>
-      {quest.cooldown && <p className="wrap-anywhere">КД прохождения: {quest.cooldown}</p>}
+      <p>КД прохождения: {formatQuestCooldown(quest.cooldown)}</p>
     </div>
   )
 }

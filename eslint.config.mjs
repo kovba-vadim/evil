@@ -24,7 +24,7 @@ const eslintConfig = [
     },
   },
   {
-    ignores: ['.next/', 'src/payload-types.ts', 'src/payload-generated-schema.ts'],
+    ignores: ['.next/', '.next-accounts-test/', '.next-player-tests/', 'src/payload-types.ts', 'src/payload-generated-schema.ts'],
   },
 ]
 

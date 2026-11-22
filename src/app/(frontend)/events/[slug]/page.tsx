@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/public/breadcrumbs'
 import { getEntryMetadata } from '@/queries/public-seo'
 import Link from 'next/link'
 import { RichText } from '@payloadcms/richtext-lexical/react'
@@ -7,6 +8,12 @@ import config from '@payload-config'
 import { getPublicEventDetail } from '@/queries/public-events'
 import { EventLaunchTimes } from '@/components/public/event-launch-times'
 import { EventRewards } from '@/components/public/events'
+import { RewardCoins } from '@/components/public/reward-labels'
+import { playerSession } from '@/auth/players'
+import { getPlayerCooldowns } from '@/queries/player-cooldowns'
+import { PlayerCooldowns } from '@/components/public/player-cooldowns'
+import { PlayerReminders } from '@/components/public/player-reminders'
+import { getPlayerReminders } from '@/queries/player-reminders'
 export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   return getEntryMetadata('events', (await params).slug, 'Ивент')
@@ -16,15 +23,14 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const detail = await getPublicEventDetail(await getPayload({ config }), slug)
   if (!detail) notFound()
   const { event } = detail
+  const { payload, user } = await playerSession()
   return (
     <article className="max-w-4xl space-y-6">
-      <Link href="/events" className="text-primary underline">
-        Все ивенты
-      </Link>
+      <Breadcrumbs section="events" title={event.name} />
       <h1 className="text-3xl font-semibold tracking-tight wrap-anywhere">{event.name}</h1>
       {event.shortDescription && <p>{event.shortDescription}</p>}
       {detail.description && <RichText data={detail.description} className="homepage-richtext" />}
-      <p>Монеты: {event.coins}</p>
+      <RewardCoins coins={event.coins} />
       <section aria-labelledby="event-rewards" className="space-y-4">
         <h2 id="event-rewards" className="text-xl font-semibold">
           Возможные награды
@@ -33,6 +39,35 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       </section>
       <EventLaunchTimes times={detail.times} initialNow={new Date().toISOString()} />
       <p>КД прохождения: {detail.cooldownMinutes} мин.</p>
+      <p>Расчётная длительность ивента: {detail.durationMinutes} мин. Ивент может закончиться раньше, если его прошли.</p>
+      {user ? (
+        <PlayerReminders
+          key={`reminders:${user.id}:${event.id}`}
+          initial={await getPlayerReminders(payload, user, event.id)}
+          event={{ id: event.id, name: event.name }}
+          timeZone={user.timeZone}
+        />
+      ) : (
+        <p>
+          <Link href={`/login?returnTo=${encodeURIComponent(`/events/${slug}`)}`}>
+            Войдите, чтобы настроить напоминание
+          </Link>
+          . Отправка сообщений пока не подключена.
+        </p>
+      )}
+      {user ? (
+        <PlayerCooldowns
+          key={`${user.id}:${event.id}`}
+          eventID={event.id}
+          initial={await getPlayerCooldowns(payload, user, event.id)}
+          timeZone={user.timeZone}
+        />
+      ) : (
+        <p>
+          <Link href={`/login?returnTo=${encodeURIComponent(`/events/${slug}`)}`}>Войдите</Link>,
+          чтобы сохранять прохождения и личные КД.
+        </p>
+      )}
     </article>
   )
 }

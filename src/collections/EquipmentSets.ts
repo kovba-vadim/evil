@@ -1,3 +1,5 @@
+import { shopFields } from '../fields/shopFields'
+import { hideInactiveShop, validateShop } from '../hooks/shop'
 import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
@@ -15,7 +17,11 @@ export const EquipmentSets: CollectionConfig = {
     update: authenticated,
     delete: authenticated,
   },
-  hooks: { beforeDelete: [preventSetDeletion] },
+  hooks: {
+    beforeChange: [validateShop],
+    afterRead: [hideInactiveShop],
+    beforeDelete: [preventSetDeletion],
+  },
   fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
@@ -33,5 +39,6 @@ export const EquipmentSets: CollectionConfig = {
         description: 'Состав определяется связью «Сет» в одежде. Число частей не ограничено.',
       },
     },
+    shopFields(),
   ]),
 }

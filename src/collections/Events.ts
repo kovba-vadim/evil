@@ -36,6 +36,21 @@ export const Events: CollectionConfig = {
       },
     },
     {
+      name: 'durationMinutes',
+      label: 'Длительность ивента, минут',
+      type: 'number',
+      required: true,
+      defaultValue: 30,
+      min: 1,
+      validate: (value: unknown) =>
+        (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) ||
+        'Укажите положительное целое число минут.',
+      admin: {
+        description:
+          'Расчётное время от запуска до окончания ивента. Ивент может закончиться раньше, если его прошли.',
+      },
+    },
+    {
       name: 'coins',
       label: 'Монеты за прохождение',
       type: 'number',

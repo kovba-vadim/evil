@@ -20,7 +20,7 @@ test('event time admin shows related edit links and refreshes membership', async
           slug: fixtures.name(),
           launchTimes: [time.id],
           coins: 0,
-          cooldownMinutes: 0,
+          durationMinutes: 30, cooldownMinutes: 0,
         }),
       )
     }

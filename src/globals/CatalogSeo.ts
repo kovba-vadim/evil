@@ -3,6 +3,11 @@ import { authenticated } from '../access/authenticated'
 import { seoTab } from '../fields/seo'
 
 export const catalogTitles = {
+  'login-page': 'Вход',
+  'register-page': 'Регистрация',
+  'account-page': 'Личный кабинет',
+  'forgot-password-page': 'Восстановление пароля',
+  'reset-password-page': 'Новый пароль',
   'bosses-page': 'Ивент-боссы',
   'events-page': 'Ивенты',
   'event-launches-page': 'Запуск ивентов',

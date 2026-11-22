@@ -3,6 +3,7 @@ import type { BossCard, BossDetail } from '@/queries/public-items'
 import { publicRecordURL } from '@/lib/public-record-url'
 import { ItemImage } from './item-image'
 import { ItemHeading } from './item-detail'
+import { formatRewardQuantity, RewardCoins } from './reward-labels'
 
 function BossRewards({ rewards }: { rewards: BossCard['rewards'] }) {
   return rewards.length ? (
@@ -15,7 +16,9 @@ function BossRewards({ rewards }: { rewards: BossCard['rewards'] }) {
           >
             {reward.name}
           </Link>
-          <span className="text-sm text-muted-foreground">Количество333: {reward.quantity}</span>
+          <span className="text-sm text-muted-foreground">
+            {formatRewardQuantity(reward.quantity)}
+          </span>
         </li>
       ))}
     </ul>
@@ -41,7 +44,7 @@ export function BossCatalog({ items }: { items: BossCard[] }) {
                 <ItemImage image={item.image} name={item.name} />
                 <h2 className="font-medium wrap-anywhere">{item.name}</h2>
               </Link>
-              <p>Монеты333: {item.coins}</p>
+              <RewardCoins coins={item.coins} />
               <div className="space-y-2">
                 <p className="text-sm font-medium">Возможные награды</p>
                 <BossRewards rewards={item.rewards} />
@@ -59,7 +62,7 @@ export function BossDetails({ detail }: { detail: BossDetail }) {
   return (
     <article className="max-w-4xl space-y-9">
       <ItemHeading item={detail.item} />
-      <p>Монеты111: {detail.coins}</p>
+      <RewardCoins coins={detail.coins} />
       <section aria-labelledby="rewards-title" className="space-y-4">
         <h2 id="rewards-title" className="text-xl font-semibold">
           Возможные награды

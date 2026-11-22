@@ -37,7 +37,7 @@ it('renders every related event, edit links and fresh membership through Payload
         slug: fixtures.name(),
         launchTimes: [time.id],
         coins: 0,
-        cooldownMinutes: 0,
+        durationMinutes: 30, cooldownMinutes: 0,
       }),
     )
   }
@@ -46,7 +46,7 @@ it('renders every related event, edit links and fresh membership through Payload
     slug: fixtures.name(),
     launchTimes: [unused.id],
     coins: 0,
-    cooldownMinutes: 0,
+    durationMinutes: 30, cooldownMinutes: 0,
   })
   // Force multiple transport pages without creating hundreds of test records.
   const find = api.find.bind(api)

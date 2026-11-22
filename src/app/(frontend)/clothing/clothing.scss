@@ -1,0 +1,4 @@
+// Keep the viewport width stable when switching to a shorter catalog panel.
+:root:has(.clothing-catalog) {
+  scrollbar-gutter: stable;
+}

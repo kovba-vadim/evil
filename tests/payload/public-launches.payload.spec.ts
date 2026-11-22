@@ -39,7 +39,7 @@ describe('public schedule only on the isolated database', () => {
         await fixtures.create('events', {
           ...named(),
           coins: 10,
-          cooldownMinutes: 0,
+          durationMinutes: 30, cooldownMinutes: 0,
           launchTimes: times.map((time) => time.id),
           rewards: [
             { resource: a.id, minQuantity: 0, maxQuantity: 3 },
@@ -50,7 +50,7 @@ describe('public schedule only on the isolated database', () => {
     await fixtures.create('events', {
       ...named(),
       coins: 11,
-      cooldownMinutes: 0,
+      durationMinutes: 30, cooldownMinutes: 0,
       launchTimes: times.map((time) => time.id),
       rewards: [{ resource: a.id, minQuantity: 1, maxQuantity: 2 }],
     })

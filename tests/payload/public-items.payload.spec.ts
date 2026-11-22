@@ -103,6 +103,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
     for (const quantity of [2, 3, 5]) {
       await fixtures.create('clothing', {
         ...named(),
+        category: 'set',
         equipmentSet: set.id,
         craftable: true,
         recipe: {
@@ -114,7 +115,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
         },
       })
     }
-    await fixtures.create('clothing', { ...named(), equipmentSet: set.id })
+    await fixtures.create('clothing', { ...named(), category: 'set', equipmentSet: set.id })
     const detail = (await getSetDetail(api, set.slug, 1))!
     expect(detail.totalRecipe.coins).toBe(100)
     expect(detail.totalRecipe.ingredients).toHaveLength(2)
@@ -128,6 +129,62 @@ describe('public item pages through real Payload/PostgreSQL', () => {
     expect(html).toContain(`href="${publicRecordURL('resources', other.slug)}"`)
     expect(html).not.toContain('href="/clothing/')
     expect(html).toContain('Всего для крафта сета')
+  })
+  it('orders set recipe totals like the resource catalog across pages and after a reorder', async () => {
+    const late = await fixtures.create('resources', { ...named(), _order: 'a3' })
+    const first = await fixtures.create('resources', { ...named(), _order: 'a1' })
+    const tied = await fixtures.create('resources', { ...named(), _order: 'a1' })
+    const unordered = await fixtures.create('resources', { ...named(), _order: 'a4' })
+    const cleared = await api.update({
+      collection: 'resources',
+      id: unordered.id,
+      data: { _order: null },
+      overrideAccess: true,
+    })
+    expect(cleared._order).toBeNull()
+    const unrelated = await fixtures.create('resources', { ...named(), _order: 'a2' })
+    const set = await fixtures.create('equipment-sets', named())
+    for (const quantity of [2, 3]) {
+      await fixtures.create('clothing', {
+        ...named(),
+        category: 'set',
+        equipmentSet: set.id,
+        craftable: true,
+        recipe: {
+          resourceIngredients: [late, unordered, tied, first].map(({ id }) => ({
+            resource: id,
+            quantity,
+          })),
+          coins: quantity * 10,
+        },
+      })
+    }
+    const assertOrder = async (ids: number[]) => {
+      const catalog = await getResourceCatalog(api, {
+        pageSize: 1,
+        where: { name: { contains: fixtures.prefix } },
+      })
+      expect(catalog.filter(({ id }) => id !== unrelated.id).map(({ id }) => id)).toEqual(ids)
+      const detail = await getSetDetail(api, set.slug, 1)
+      expect(detail?.totalRecipe.coins).toBe(50)
+      expect(detail?.totalRecipe.ingredients.map(({ id, quantity }) => [id, quantity])).toEqual(
+        ids.map((id) => [id, 5]),
+      )
+      expect(detail?.parts[0].recipe?.ingredients.map(({ id }) => id)).toEqual([
+        late.id,
+        unordered.id,
+        tied.id,
+        first.id,
+      ])
+    }
+    await assertOrder([first.id, tied.id, late.id, unordered.id])
+    await api.update({
+      collection: 'resources',
+      id: late.id,
+      data: { _order: 'a0' },
+      overrideAccess: true,
+    })
+    await assertOrder([late.id, first.id, tied.id, unordered.id])
   })
   it('returns a complete ordered catalog, batches shared images and excludes recipe payloads', async () => {
     const data = Buffer.from(
@@ -194,7 +251,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
         const source = await fixtures.create(kind, {
           ...named(),
           coins: 0,
-          cooldownMinutes: 0,
+          durationMinutes: 30, cooldownMinutes: 0,
           rewards:
             kind === 'events'
               ? [{ resource: item.id, minQuantity: 0, maxQuantity: 3 }]
@@ -205,6 +262,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
       for (const kind of ['resources', 'clothing', 'weapons'] as const) {
         const use = await fixtures.create(kind, {
           ...named(),
+          ...(kind === 'clothing' ? { category: 'ring' as const } : {}),
           craftable: true,
           recipe: { coins: 0, resourceIngredients: [{ resource: item.id, quantity: 1 }] },
         })
@@ -319,7 +377,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
   ] as const)(
     'permits public read but denies anonymous create/update/delete on %s',
     async (collection) => {
-      const data = { ...named(), coins: 0, cooldownMinutes: 0 }
+      const data = { ...named(), coins: 0, durationMinutes: 30, cooldownMinutes: 0, ...(collection === 'clothing' ? { category: 'hazmat' } : {}) }
       const doc = await fixtures.create(collection, data as never)
       await expect(
         api.findByID({ collection, id: doc.id, overrideAccess: false, user: null, depth: 0 }),
@@ -352,7 +410,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
       const item = await fixtures.create(collection, {
         ...named(),
         craftable: true,
-        ...(collection === 'clothing' ? { equipmentSet: set.id } : {}),
+        ...(collection === 'clothing' ? { category: 'set', equipmentSet: set.id } : {}),
         recipe: { coins: 7, resourceIngredients: [{ resource: ingredient.id, quantity: 2 }] },
       })
       const detail = (await getEquipmentDetail(api, collection, item.slug))!
@@ -382,12 +440,12 @@ describe('public item pages through real Payload/PostgreSQL', () => {
       parts = []
     for (let index = 11; index >= 0; index--) {
       sets.push(await fixtures.create('equipment-sets', named(index)))
-      hazmats.push(await fixtures.create('clothing', { ...named(index), equipmentSet: null }))
+      hazmats.push(await fixtures.create('clothing', { ...named(index), category: 'hazmat', equipmentSet: null }))
       weapons.push(await fixtures.create('weapons', named(index)))
     }
     const set = sets[0]
     for (let index = 11; index >= 0; index--)
-      parts.push(await fixtures.create('clothing', { ...named(index), equipmentSet: set.id }))
+      parts.push(await fixtures.create('clothing', { ...named(index), category: 'set', equipmentSet: set.id }))
     const where = { name: { contains: fixtures.prefix } }
     const spy = vi.spyOn(api, 'find')
     for (const [kind, expected] of [
@@ -395,7 +453,10 @@ describe('public item pages through real Payload/PostgreSQL', () => {
       ['clothing', hazmats],
       ['weapons', weapons],
     ] as const) {
-      const result = await getEquipmentCatalog(api, kind, { pageSize: 2, where })
+      const result = await getEquipmentCatalog(api, kind, {
+        pageSize: 2,
+        where: kind === 'clothing' ? { and: [where, { category: { equals: 'hazmat' } }] } : where,
+      })
       expect(result.map(({ id }) => id)).toEqual([...expected].reverse().map(({ id }) => id))
       expect(result.every((item) => !('recipe' in item))).toBe(true)
     }
@@ -419,7 +480,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
         const doc = await fixtures.create(kind, {
           ...named(),
           _order: `a${String.fromCharCode(65 + index)}`,
-          ...(kind === 'clothing' ? { equipmentSet: index % 2 ? set.id : null } : {}),
+          ...(kind === 'clothing' ? { category: index % 2 ? 'set' : 'ring', equipmentSet: index % 2 ? set.id : null } as const : {}),
           craftable: true,
           recipe: { coins: 0, ordinaryIngredients: [{ item: ingredient.id, quantity: 1 }] },
         })
@@ -428,6 +489,7 @@ describe('public item pages through real Payload/PostgreSQL', () => {
       expected.push(...group.reverse())
       await fixtures.create(kind, {
         ...named(),
+        ...(kind === 'clothing' ? { category: 'hazmat' as const } : {}),
         craftable: false,
         recipe: { coins: 0, ordinaryIngredients: [{ item: ingredient.id, quantity: 1 }] },
       })

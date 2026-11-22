@@ -4,6 +4,7 @@ import config from '@payload-config'
 import { getPublicSchedule } from '@/queries/public-launches'
 import { getPublicEvents, eventCatalogOptions } from '@/queries/public-events'
 import { LaunchSchedule } from '@/components/public/launch-schedule'
+import { CatalogReminderSession } from '@/components/public/catalog-reminder-session'
 export const dynamic = 'force-dynamic'
 export function generateMetadata() {
   return getPageMetadata('event-launches-page')
@@ -15,5 +16,9 @@ export default async function Page() {
     getPublicSchedule(payload, { zone: 'server' }, now),
     getPublicEvents(payload),
   ])
-  return <LaunchSchedule initial={initial} options={eventCatalogOptions(events)} />
+  return (
+    <CatalogReminderSession returnTo="/event-launches">
+      <LaunchSchedule initial={initial} options={eventCatalogOptions(events)} />
+    </CatalogReminderSession>
+  )
 }

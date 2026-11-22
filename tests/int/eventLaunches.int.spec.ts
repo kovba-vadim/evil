@@ -41,6 +41,18 @@ describe('deterministic launch instances and time zones', () => {
       offset: 'UTC+3',
     })
   })
+  it('formats the same launch on either side of local midnight and the year boundary', () => {
+    const now = '2026-12-31T20:00:00Z'
+    const instant = '2026-12-31T22:25:00Z'
+    expect(formatLaunch(instant, 'server', now, 'ru')).toMatchObject({
+      date: 'Завтра, 01.01.2027',
+      time: '01:25',
+    })
+    expect(formatLaunch(instant, 'Europe/London', now, 'ru')).toMatchObject({
+      date: 'Сегодня, 31.12.2026',
+      time: '22:25',
+    })
+  })
   it('moves a passed range start to tomorrow, but includes a start exactly now', () => {
     expect(
       launchWindow('2026-01-01T20:00:00Z', { zone: 'server', from: '23:00', to: '01:00' }).window

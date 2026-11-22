@@ -145,7 +145,7 @@ export async function seedEvents(payload: Payload, apply = false): Promise<SeedP
             name: change.name,
             slug: '',
             coins: 0,
-            cooldownMinutes: 0,
+            durationMinutes: 30, cooldownMinutes: 0,
             launchTimes: change.launchTimes,
           },
           depth: 0,

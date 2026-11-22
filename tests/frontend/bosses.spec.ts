@@ -77,7 +77,7 @@ test('boss catalog and reward roundtrip work in both themes and on mobile', asyn
       )
       await expect(
         cards.filter({ has: page.getByRole('heading', { name: boss.name, exact: true }) }),
-      ).toContainText('Монеты: 11')
+      ).toContainText('Монеты (max): 11')
       await page.screenshot({
         path: `test-results/bosses-${mobile ? 'mobile-dark' : 'desktop-light'}.png`,
       })
@@ -86,17 +86,17 @@ test('boss catalog and reward roundtrip work in both themes and on mobile', asyn
         .getByRole('region', { name: 'Где получить' })
         .getByRole('link', { name: boss.name, exact: true })
         .click()
-      await expect(page).toHaveURL(publicRecordURL('bosses', boss.slug)!)
+      await expect(page).toHaveURL(`${publicRecordURL('bosses', boss.slug)}`)
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(boss.name)
-      await expect(page.getByText('Монеты: 11', { exact: true })).toBeVisible()
+      await expect(page.getByText('Монеты (max): 11', { exact: true })).toBeVisible()
       await expect(page.getByText('Описание ивент-босса', { exact: true })).toBeVisible()
       const rewards = page.getByRole('region', { name: 'Возможные награды' })
       await expect(rewards.getByRole('link')).toHaveCount(3)
       for (let index = 0; index < 3; index++) {
-        await expect(rewards).toContainText(`Количество: ${index + 2}`)
+        await expect(rewards).toContainText(`Кол-во: ${index + 2}`)
         await expect(
           rewards.getByRole('link', { name: resources[index].name, exact: true }),
-        ).toHaveAttribute('href', publicRecordURL('resources', resources[index].slug)!)
+        ).toHaveAttribute('href', `${publicRecordURL('resources', resources[index].slug)}`)
       }
       await expect(page.getByRole('img', { name: `Нет изображения: ${boss.name}` })).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

@@ -32,7 +32,7 @@ it('seeds atomically through Payload, preserves content, uses generated slugs an
       name: EVENT_SCHEDULE[0].name,
       slug: 'manual-ferry-slug',
       coins: 440,
-      cooldownMinutes: 360,
+      durationMinutes: 30, cooldownMinutes: 360,
       shortDescription: 'Сохранить описание',
       rewards: [{ resource: resource.id, minQuantity: 0, maxQuantity: 2 }],
       launchTimes: [extra.id, times.get('02:25')!],
@@ -41,7 +41,7 @@ it('seeds atomically through Payload, preserves content, uses generated slugs an
       name: fixtures.name(),
       slug: slugifyItemName(EVENT_SCHEDULE[1].name),
       coins: 12,
-      cooldownMinutes: 34,
+      durationMinutes: 30, cooldownMinutes: 34,
     })
     const createSpy = vi.spyOn(api, 'create')
     await expect(seedEvents(api, true)).rejects.toThrow('23:55')
@@ -91,7 +91,7 @@ it('seeds atomically through Payload, preserves content, uses generated slugs an
       name: original.name,
       slug: original.slug,
       coins: 440,
-      cooldownMinutes: 360,
+      durationMinutes: 30, cooldownMinutes: 360,
       shortDescription: original.shortDescription,
       rewards: original.rewards,
     })
@@ -104,7 +104,7 @@ it('seeds atomically through Payload, preserves content, uses generated slugs an
       depth: 0,
       overrideAccess: true,
     })
-    expect(preserved).toMatchObject({ name: renamed.name, coins: 12, cooldownMinutes: 34 })
+    expect(preserved).toMatchObject({ name: renamed.name, coins: 12, durationMinutes: 30, cooldownMinutes: 34 })
     for (const event of EVENT_SCHEDULE.slice(2)) {
       const result = await api.find({
         collection: 'events',
@@ -116,7 +116,7 @@ it('seeds atomically through Payload, preserves content, uses generated slugs an
       expect(result.docs[0]).toMatchObject({
         slug: slugifyItemName(event.name),
         coins: 0,
-        cooldownMinutes: 0,
+        durationMinutes: 30, cooldownMinutes: 0,
         launchTimes: event.times.map((time) => times.get(time)),
       })
       expect(result.docs[0].rewards ?? []).toEqual([])

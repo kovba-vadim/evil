@@ -55,7 +55,7 @@ test('public catalog and resource/ordinary pages work on desktop/mobile and both
     const event = await fixtures.create('events', {
       ...named(),
       coins: 0,
-      cooldownMinutes: 0,
+      durationMinutes: 30, cooldownMinutes: 0,
       rewards: [{ resource: item.id, minQuantity: 0, maxQuantity: 3 }],
     })
     const quest = await fixtures.create('quests', {
@@ -85,6 +85,7 @@ test('public catalog and resource/ordinary pages work on desktop/mobile and both
       recipe: { coins: 4, resourceIngredients: [{ resource: item.id, quantity: 2 }] },
     })
     const clothing = await fixtures.create('clothing', {
+      category: 'set',
       equipmentSet: set.id,
       description: plain.description,
       ...named(),
@@ -101,25 +102,33 @@ test('public catalog and resource/ordinary pages work on desktop/mobile and both
       page.getByRole('img', { name: `Нет изображения: ${item.name}`, exact: true }),
     ).toBeVisible()
     await page.getByRole('link', { name: item.name, exact: true }).click()
-    await expect(page).toHaveURL(publicRecordURL('resources', item.slug)!)
+    await expect(page).toHaveURL(`${publicRecordURL('resources', item.slug)}`)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(item.name)
     const sources = page.getByRole('region', { name: 'Где получить' })
     for (const source of [event, quest, boss])
       await expect(sources.getByText(source.name, { exact: true })).toBeVisible()
-    await expect(sources).toContainText('0–3')
+    await expect(sources.getByRole('listitem').filter({ hasText: event.name })).toContainText(
+      'Кол-во: 0–3',
+    )
+    await expect(sources.getByRole('listitem').filter({ hasText: boss.name })).toContainText(
+      'Кол-во:',
+    )
+    await expect(sources.getByRole('listitem').filter({ hasText: quest.name })).toContainText(
+      'Количество:',
+    )
     await expect(sources.getByRole('link', { name: boss.name })).toHaveAttribute(
       'href',
-      publicRecordURL('bosses', boss.slug)!,
+      `${publicRecordURL('bosses', boss.slug)}`,
     )
     const uses = page.getByRole('region', { name: 'Используется в крафте' })
     await expect(uses.getByRole('link', { name: active.name })).toHaveAttribute(
       'href',
-      publicRecordURL('resources', active.slug)!,
+      `${publicRecordURL('resources', active.slug)}`,
     )
     await expect(uses.getByText(clothing.name, { exact: true })).toBeVisible()
     await expect(uses.getByRole('link', { name: clothing.name })).toHaveAttribute(
       'href',
-      publicRecordURL('clothing', clothing.slug)!,
+      `${publicRecordURL('clothing', clothing.slug)}`,
     )
     await expect(uses.getByText(inactive.name)).toHaveCount(0)
     const recipe = page.getByRole('region', { name: 'Как скрафтить' })
@@ -127,7 +136,7 @@ test('public catalog and resource/ordinary pages work on desktop/mobile and both
     await expect(recipe.getByRole('link')).toHaveCount(2)
     await page.screenshot({ path: 'test-results/items-desktop.png' })
     await recipe.getByRole('link').filter({ hasText: plain.name }).click()
-    await expect(page).toHaveURL(publicRecordURL('ordinary-items', plain.slug)!)
+    await expect(page).toHaveURL(`${publicRecordURL('ordinary-items', plain.slug)}`)
     await expect(page.getByText('Описание обычного ресурса')).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await page.emulateMedia({ colorScheme: 'dark' })
@@ -159,7 +168,7 @@ test('public catalog and resource/ordinary pages work on desktop/mobile and both
           .getByRole('region', { name: 'Используется в крафте' })
           .getByRole('link', { name: record.name })
           .click()
-        await expect(page).toHaveURL(publicRecordURL(kind, record.slug)!)
+        await expect(page).toHaveURL(`${publicRecordURL(kind, record.slug)}`)
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(record.name)
         await expect(page.getByRole('region', { name: 'Как скрафтить' })).toBeVisible()
         if (kind === 'clothing') {
@@ -167,7 +176,7 @@ test('public catalog and resource/ordinary pages work on desktop/mobile and both
           await expect(page.getByText('Описание обычного ресурса')).toBeVisible()
           await expect(page.getByRole('link', { name: set.name, exact: true })).toHaveAttribute(
             'href',
-            publicRecordURL('equipment-sets', set.slug)!,
+            `${publicRecordURL('equipment-sets', set.slug)}`,
           )
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
