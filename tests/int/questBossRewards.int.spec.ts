@@ -105,7 +105,7 @@ describe('quest and boss server validation without database', () => {
     await expect(
       quest({
         coins: 0,
-        cooldown: '',
+        cooldown: 0,
         rewards: [{ resource: 1, quantity: 2 }],
         ordinaryRewards: [{ item: 1, quantity: 3 }],
       }),
@@ -145,26 +145,26 @@ describe('quest and boss server validation without database', () => {
     },
   )
 
-  it('accepts descriptive cooldown, optional quantity and category', async () => {
+  it('accepts numeric cooldown, optional quantity and category', async () => {
     await expect(
-      quest({ coins: 0, cooldown: '6 часов', requiredQuantity: 10, category: 1 }),
+      quest({ coins: 0, cooldown: 360, requiredQuantity: 10, category: 1 }),
     ).resolves.toBeDefined()
     await expect(
-      quest({ coins: 0, cooldown: 'Раз в сутки', requiredQuantity: null, category: null }),
+      quest({ coins: 0, cooldown: 1440, requiredQuantity: null, category: null }),
     ).resolves.toBeDefined()
   })
 
   it('preserves both reward lists during category and cooldown PATCH', async () => {
     const original: Partial<Quest> = {
       coins: 0,
-      cooldown: '0 минут',
+      cooldown: 0,
       category: 1,
       rewards: [{ resource: 1, quantity: 2 }],
       ordinaryRewards: [{ item: 1, quantity: 3 }],
     }
-    await expect(quest({ category: null, cooldown: '30 минут' }, original)).resolves.toMatchObject({
+    await expect(quest({ category: null, cooldown: 30 }, original)).resolves.toMatchObject({
       category: null,
-      cooldown: '30 минут',
+      cooldown: 30,
     })
     expect(original.rewards).toEqual([{ resource: 1, quantity: 2 }])
     expect(original.ordinaryRewards).toEqual([{ item: 1, quantity: 3 }])

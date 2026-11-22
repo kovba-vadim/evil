@@ -34,7 +34,7 @@ describe('public events through Payload', () => {
           ...named(),
           _order: `a${String.fromCharCode(65 + index)}`,
           coins: index,
-          cooldownMinutes: 5,
+          durationMinutes: 30, cooldownMinutes: 5,
           rewards: [
             { resource: a.id, minQuantity: 0, maxQuantity: 3 },
             ...(index % 2 === 0 ? [{ resource: b.id, minQuantity: 1, maxQuantity: 2 }] : []),
@@ -76,7 +76,7 @@ describe('public events through Payload', () => {
     const event = await fixtures.create('events', {
       ...named(),
       coins: 0,
-      cooldownMinutes: 90,
+      durationMinutes: 30, cooldownMinutes: 90,
       launchTimes: times.map((time) => time.id),
     })
     const detail = (await getPublicEventDetail(api, event.slug))!

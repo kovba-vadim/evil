@@ -49,7 +49,7 @@ describe('public quests through isolated PostgreSQL', () => {
           coins: i,
           category: i % 2 === 0 ? category.id : null,
           requiredQuantity: i === 0 ? null : 3,
-          cooldown: i === 0 ? '' : 'Раз в сутки',
+          cooldown: i === 0 ? 0 : 1440,
           rewards: [
             { resource: custom.id, quantity: 2 },
             ...(i % 2 === 0 ? [{ resource: otherCustom.id, quantity: 3 }] : []),
@@ -106,7 +106,7 @@ describe('public quests through isolated PostgreSQL', () => {
     expect(choices.rewards.filter((row) => row.name === 'Одинаковая награда')).toHaveLength(2)
     expect(new Set(choices.rewards.map(questRewardKey)).size).toBe(4)
     const detail = (await getPublicQuestDetail(api, quests[11].slug))!
-    expect(detail.quest.cooldown).toBeNull()
+    expect(detail.quest.cooldown).toBe(0)
     expect(detail.quest.requiredQuantity).toBeNull()
     expect(detail.quest.rewards.map((row) => row.quantity)).toEqual([2, 3, 4, 5])
     expect(await getPublicQuestDetail(api, fixtures.name())).toBeNull()

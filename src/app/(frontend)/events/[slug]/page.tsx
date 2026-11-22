@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/public/breadcrumbs'
 import { getEntryMetadata } from '@/queries/public-seo'
 import Link from 'next/link'
 import { RichText } from '@payloadcms/richtext-lexical/react'
@@ -7,6 +8,7 @@ import config from '@payload-config'
 import { getPublicEventDetail } from '@/queries/public-events'
 import { EventLaunchTimes } from '@/components/public/event-launch-times'
 import { EventRewards } from '@/components/public/events'
+import { RewardCoins } from '@/components/public/reward-labels'
 import { playerSession } from '@/auth/players'
 import { getPlayerCooldowns } from '@/queries/player-cooldowns'
 import { PlayerCooldowns } from '@/components/public/player-cooldowns'
@@ -24,13 +26,11 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const { payload, user } = await playerSession()
   return (
     <article className="max-w-4xl space-y-6">
-      <Link href="/events" className="text-primary underline">
-        Все ивенты
-      </Link>
+      <Breadcrumbs section="events" title={event.name} />
       <h1 className="text-3xl font-semibold tracking-tight wrap-anywhere">{event.name}</h1>
       {event.shortDescription && <p>{event.shortDescription}</p>}
       {detail.description && <RichText data={detail.description} className="homepage-richtext" />}
-      <p>Монеты: {event.coins}</p>
+      <RewardCoins coins={event.coins} />
       <section aria-labelledby="event-rewards" className="space-y-4">
         <h2 id="event-rewards" className="text-xl font-semibold">
           Возможные награды
@@ -39,6 +39,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       </section>
       <EventLaunchTimes times={detail.times} initialNow={new Date().toISOString()} />
       <p>КД прохождения: {detail.cooldownMinutes} мин.</p>
+      <p>Расчётная длительность ивента: {detail.durationMinutes} мин. Ивент может закончиться раньше, если его прошли.</p>
       {user ? (
         <PlayerReminders
           key={`reminders:${user.id}:${event.id}`}

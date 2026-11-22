@@ -4,18 +4,22 @@ import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
 import type { Player, PlayerEventReminder, PlayerPlaySession } from '@/payload-types'
 import { reminderWriteCapability } from '@/access/player-reminders'
 import {
-  launchStillExists,
   nextReminder,
   playingAt,
   type PlayPeriod,
-  type ReminderKind,
   type ReminderPreview,
   type ReminderSnapshot,
 } from '@/lib/player-reminders'
 import type { LaunchClock } from '@/lib/event-launches'
 
 type Actor = Player & { collection: 'players' }
-type EventDefinition = { id: number; name: string; slug: string; times: LaunchClock[] }
+type EventDefinition = {
+  id: number
+  name: string
+  slug: string
+  times: LaunchClock[]
+  durationMinutes: number
+}
 const relationID = (value: number | { id: number } | null | undefined) =>
   typeof value === 'number' ? value : (value?.id ?? null)
 const publicPlay = (value?: PlayerPlaySession): PlayPeriod | null =>
@@ -49,10 +53,16 @@ async function eventDefinitions(
       limit: 100,
       page,
       where: { id: { in: ids } },
-      select: { name: true, slug: true, launchTimes: true },
+      select: { name: true, slug: true, launchTimes: true, durationMinutes: true },
     })
     for (const doc of result.docs) {
-      definitions.set(doc.id, { id: doc.id, name: doc.name, slug: doc.slug, times: [] })
+      definitions.set(doc.id, {
+        id: doc.id,
+        name: doc.name,
+        slug: doc.slug,
+        times: [],
+        durationMinutes: doc.durationMinutes,
+      })
       relations.set(
         doc.id,
         (doc.launchTimes ?? []).flatMap((value) => {
@@ -96,7 +106,7 @@ async function rawReminders(payload: Payload, user: Actor, eventID?: number, req
       overrideAccess: false,
       req,
       depth: 0,
-      ...(eventID ? { where: { event: { equals: eventID } } } : {}),
+      where: { kind: { equals: 'regular' }, ...(eventID ? { event: { equals: eventID } } : {}) },
       sort: ['createdAt', 'id'],
       page,
       limit: 100,
@@ -116,6 +126,11 @@ async function rawPlay(payload: Payload, user: Actor, req?: PayloadRequest) {
       limit: 1,
     })
   ).docs[0]
+}
+
+export async function getPlayerPlay(payload: Payload, user: Actor) {
+  const play = publicPlay(await rawPlay(payload, user))
+  return { playerID: user.id, serverNow: new Date().toISOString(), play }
 }
 async function cooldowns(
   payload: Payload,
@@ -179,16 +194,18 @@ export async function getPlayerReminders(
         event = eventID === null ? null : definitions.get(eventID)
       let proposal = null,
         status: ReminderSnapshot['reminders'][number]['status'] = 'invalid'
-      if (doc.kind === 'once') {
-        if (doc.launchAt && doc.remindAt)
-          proposal = { launchAt: doc.launchAt, remindAt: doc.remindAt }
-        if (event && proposal && launchStillExists(event.times, proposal.launchAt))
-          status = Date.parse(proposal.remindAt) <= Date.parse(now) ? 'past' : 'scheduled'
-      } else if (event && event.times.length) {
+      if (event && event.times.length) {
         if (!doc.enabled) status = 'disabled'
         else if (!playingAt(play, now)) status = 'waiting'
         else {
-          proposal = nextReminder(event.times, doc.leadMinutes, now, play)
+          proposal = nextReminder(
+            event.times,
+            doc.leadMinutes,
+            now,
+            event.durationMinutes,
+            personal.get(eventID!) ?? null,
+            play,
+          )
           status = proposal ? 'scheduled' : 'no-launch'
         }
       }
@@ -197,7 +214,7 @@ export async function getPlayerReminders(
         eventID,
         name: event?.name ?? 'Ивент недоступен',
         slug: event?.slug ?? null,
-        kind: doc.kind,
+        kind: 'regular',
         leadMinutes: doc.leadMinutes,
         includeCooldown: doc.includeCooldown,
         enabled: doc.enabled,
@@ -214,16 +231,26 @@ export async function previewReminder(
   payload: Payload,
   user: Actor,
   eventID: number,
-  kind: ReminderKind,
+  kind: 'regular',
   lead: number,
   req?: PayloadRequest,
 ): Promise<ReminderPreview> {
+  if (kind !== 'regular') throw new Error('Доступны только регулярные подписки.')
   const now = new Date().toISOString()
   const event = (await eventDefinitions(payload, user, [eventID], req)).get(eventID)
-  const current = (await rawReminders(payload, user, eventID, req)).find((doc) => doc.kind === kind)
-  const play = kind === 'regular' ? publicPlay(await rawPlay(payload, user, req)) : undefined
-  const proposal = event ? nextReminder(event.times, lead, now, play) : null
+  const current = (await rawReminders(payload, user, eventID, req))[0]
+  const play = publicPlay(await rawPlay(payload, user, req))
   const personal = await cooldowns(payload, user, [eventID], now, req)
+  const proposal = event
+    ? nextReminder(
+        event.times,
+        lead,
+        now,
+        event.durationMinutes,
+        personal.get(eventID) ?? null,
+        play,
+      )
+    : null
   return {
     serverNow: now,
     revision: current?.revision ?? null,
@@ -233,7 +260,7 @@ export async function previewReminder(
       ? 'Ивент недоступен.'
       : !event.times.length
         ? 'У ивента нет расписания: выбрать запуск нельзя.'
-        : kind === 'regular' && !playingAt(play ?? null, now)
+        : !playingAt(play, now)
           ? 'Ожидает включения «Я играю».'
           : !proposal
             ? 'В оставшийся период «Я играю» подходящих запусков нет.'
@@ -245,11 +272,11 @@ export type ReminderAction =
   | {
       action: 'save'
       eventID: number
-      kind: ReminderKind
+      kind: 'regular'
       leadMinutes: number
       includeCooldown: boolean
       enabled: boolean
-      launchAt: string | null
+      launchAt: null
       revision: string | null
       requestID: string
     }
@@ -270,6 +297,8 @@ export async function mutatePlayerReminders(
   eventID?: number,
 ) {
   if (user.collection !== 'players') throw new Error('Необходимо войти игроком.')
+  if (input.action === 'save' && (input.kind !== 'regular' || input.launchAt !== null))
+    throw new Error('Доступны только регулярные подписки.')
   const transactionID = await payload.db.beginTransaction()
   if (!transactionID) throw new Error('Транзакции PostgreSQL обязательны.')
   const req = await createLocalReq(
@@ -335,9 +364,7 @@ export async function mutatePlayerReminders(
     } else {
       const current =
         input.action === 'save'
-          ? (await rawReminders(payload, user, input.eventID, req)).find(
-              (doc) => doc.kind === input.kind,
-            )
+          ? (await rawReminders(payload, user, input.eventID, req))[0]
           : (
               await payload.find({
                 collection: 'player-event-reminders',
@@ -346,7 +373,7 @@ export async function mutatePlayerReminders(
                 overrideAccess: false,
                 depth: 0,
                 limit: 1,
-                where: { id: { equals: input.id } },
+                where: { id: { equals: input.id }, kind: { equals: 'regular' } },
               })
             ).docs[0]
       if (!current && input.action !== 'save') {
@@ -368,45 +395,19 @@ export async function mutatePlayerReminders(
               'Настройка уже изменилась. Обновите предложение перед сохранением.',
             )
           if (input.action === 'save') {
-            const preview = await previewReminder(
-              payload,
-              user,
-              input.eventID,
-              input.kind,
-              input.leadMinutes,
-              req,
-            )
             const event = (await eventDefinitions(payload, user, [input.eventID], req)).get(
               input.eventID,
             )
             if (!event?.times.length) throw new Error('У ивента нет доступного расписания.')
-            if (
-              input.kind === 'once' &&
-              (!preview.proposal ||
-                Date.parse(preview.proposal.launchAt) !== Date.parse(input.launchAt ?? '') ||
-                Date.parse(preview.proposal.remindAt) <= Date.now() ||
-                !launchStillExists(event.times, preview.proposal.launchAt))
-            )
-              throw new ReminderConflict(
-                'Предложение изменилось. Проверьте новый запуск и сохраните ещё раз.',
-                await previewReminder(
-                  payload,
-                  user,
-                  input.eventID,
-                  input.kind,
-                  input.leadMinutes,
-                  req,
-                ),
-              )
             const data = {
               player: user.id,
               event: input.eventID,
-              kind: input.kind,
+              kind: 'regular' as const,
               leadMinutes: input.leadMinutes,
               includeCooldown: input.includeCooldown,
-              enabled: input.kind === 'once' ? true : input.enabled,
-              launchAt: input.kind === 'once' ? preview.proposal!.launchAt : null,
-              remindAt: input.kind === 'once' ? preview.proposal!.remindAt : null,
+              enabled: input.enabled,
+              launchAt: null,
+              remindAt: null,
               revision: randomUUID(),
               requestID: input.requestID,
             }
@@ -436,8 +437,6 @@ export async function mutatePlayerReminders(
               overrideAccess: false,
             })
           else {
-            if (current!.kind !== 'regular')
-              throw new Error('Отключать можно только регулярную подписку.')
             await payload.update({
               collection: 'player-event-reminders',
               id: current!.id,

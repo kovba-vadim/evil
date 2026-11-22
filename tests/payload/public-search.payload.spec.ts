@@ -42,8 +42,9 @@ describe('public global search on isolated PostgreSQL', () => {
           ...(await fixtures.create(kind, {
             ...named(),
             name: query,
+            ...(kind === 'clothing' ? { category: 'ring' as const } : {}),
             coins: 0,
-            cooldownMinutes: 0,
+            ...(kind === 'events' ? { durationMinutes: 30, cooldownMinutes: 0 } : {}),
           })),
         })
     }
@@ -78,7 +79,10 @@ describe('public global search on isolated PostgreSQL', () => {
       expected = []
     for (const { kind } of SEARCH_TYPES) {
       const create = (name: string) =>
-        fixtures.create(kind, { ...named(), name, coins: 0, cooldownMinutes: 0 })
+        fixtures.create(kind, {
+          ...named(), name, coins: 0, ...(kind === 'events' ? { durationMinutes: 30, cooldownMinutes: 0 } : {}),
+          ...(kind === 'clothing' ? { category: 'ring' as const } : {}),
+        })
       await create(`x ${query}`)
       const prefix = await create(`${query} tail`)
       for (let i = 0; i < 7; i++) await create(`y ${query} ${i}`)
@@ -115,7 +119,7 @@ describe('public global search on isolated PostgreSQL', () => {
       name: fixtures.name(),
       shortDescription: `КРИСТАЛЛ EVIL ${token}`,
       coins: 0,
-      cooldownMinutes: 0,
+      durationMinutes: 30, cooldownMinutes: 0,
     })
     expect(
       (await searchPublicCatalog(api, `кРиСтАлЛ ${token}`)).results.map((row) => row.id),

@@ -16,7 +16,7 @@ export interface PublicQuest {
   coins: number
   category: { id: number; name: string } | null
   requiredQuantity: number | null
-  cooldown: string | null
+  cooldown: number
   rewards: (QuestRewardChoice & { name: string; slug: string; quantity: number })[]
 }
 const idOf = (value: number | { id: number }) => (typeof value === 'number' ? value : value.id)
@@ -185,7 +185,7 @@ async function questCards(
       coins: doc.coins,
       category: category ?? null,
       requiredQuantity: doc.requiredQuantity ?? null,
-      cooldown: doc.cooldown?.trim() ? doc.cooldown : null,
+      cooldown: doc.cooldown ?? 0,
       rewards,
     }
   })

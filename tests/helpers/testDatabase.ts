@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import type { Payload } from 'payload'
+import type { Field } from 'payload'
 
 /** Validate before importing the app config or initializing any database adapter. */
 export function testDatabaseURL(
@@ -38,7 +39,8 @@ export function testDatabaseURL(
 
 export async function openTestPayload({
   mediaDirectory,
-}: { mediaDirectory?: string } = {}): Promise<Payload> {
+  nullableEventDuration = false,
+}: { mediaDirectory?: string; nullableEventDuration?: boolean } = {}): Promise<Payload> {
   const connectionString = testDatabaseURL()
   const [{ getPayload }, { postgresAdapter }, { default: base }] = await Promise.all([
     import('payload'),
@@ -46,21 +48,45 @@ export async function openTestPayload({
     import('../../src/payload.config'),
   ])
   const config = await base
+  const legacyDurationFields = (fields: Field[]): Field[] =>
+    fields.map((field) => {
+      if (field.type === 'number' && field.name === 'durationMinutes')
+        return { ...field, required: false, defaultValue: () => 30 }
+      if ('fields' in field) return { ...field, fields: legacyDurationFields(field.fields) }
+      if (field.type === 'tabs')
+        return {
+          ...field,
+          tabs: field.tabs.map((tab) => ({ ...tab, fields: legacyDurationFields(tab.fields) })),
+        }
+      return field
+    })
   return getPayload({
     key: `isolated-model-test-${crypto.randomUUID()}`,
     config: {
       ...config,
       // Upload fixtures must not use the application's real Media directory.
-      collections: mediaDirectory
-        ? config.collections.map((collection) =>
-            collection.slug === 'media' && collection.upload
-              ? { ...collection, upload: { ...collection.upload, staticDir: mediaDirectory } }
-              : collection,
-          )
-        : config.collections,
+      collections: config.collections.map((collection) => {
+        if (mediaDirectory && collection.slug === 'media' && collection.upload)
+          return { ...collection, upload: { ...collection.upload, staticDir: mediaDirectory } }
+        if (nullableEventDuration && collection.slug === 'events')
+          return {
+            ...collection,
+            fields: legacyDurationFields(collection.fields),
+            flattenedFields: collection.flattenedFields.map((field) =>
+              field.type === 'number' && field.name === 'durationMinutes'
+                ? { ...field, required: false, defaultValue: () => 30 }
+                : field,
+            ),
+          }
+        return collection
+      }),
       // Explicitly replace the adapter: never swap or reuse the working DATABASE_URL.
       db: {
-        ...postgresAdapter({ pool: { connectionString }, push: true, disableCreateDatabase: true }),
+        ...postgresAdapter({
+          pool: { connectionString },
+          push: process.env.EVIL_TEST_SCHEMA_PUSH !== 'false',
+          disableCreateDatabase: true,
+        }),
         allowIDOnCreate: false,
         name: 'postgres',
       },

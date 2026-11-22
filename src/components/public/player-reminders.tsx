@@ -1,7 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { BellOff, BellRing, Pencil, Trash2 } from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -9,25 +22,257 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { cooldownDate, remainingCooldown } from '@/lib/player-cooldowns'
+import { cooldownDate, remainingCooldown, COOLDOWN_CHANGED_EVENT } from '@/lib/player-cooldowns'
 import {
   DELIVERY_NOTICE,
   playingAt,
   reminderMessage,
   validLead,
-  type ReminderKind,
+  type PlayPeriod,
   type ReminderPreview,
   type ReminderSnapshot,
   type ReminderView,
 } from '@/lib/player-reminders'
 import { normalizeTimeZone, timeZoneLabel } from '@/lib/time-zones'
 import { useServerClock, useTimeZone } from './time-zone'
+import { publishPlayPeriod, subscribePlayPeriod, type PlaySnapshot } from '@/lib/play-period-sync'
 
-type WriteResult = { ok: boolean; message?: string; proposal?: ReminderPreview }
-type Write = (body: Record<string, unknown>) => Promise<WriteResult>
+type WriteResult = {
+  ok: boolean
+  message?: string
+  proposal?: ReminderPreview
+  snapshot?: ReminderSnapshot
+  status?: number
+}
+export type ReminderWrite = (body: Record<string, unknown>) => Promise<WriteResult>
 type Target = { id: number; name: string }
 
-function ReminderEditor({
+function PlayPeriodControls({
+  play,
+  clock,
+  zone,
+  busy,
+  write,
+  hours,
+  setHours,
+}: {
+  play: PlayPeriod | null
+  clock: string
+  zone: string
+  busy: boolean
+  write: ReminderWrite
+  hours: string
+  setHours: (value: string) => void
+}) {
+  return (
+    <>
+      {play && playingAt(play, clock) ? (
+        <>
+          <p>Режим включён. Осталось: {remainingCooldown(play.endsAt, clock)}</p>
+          <p>
+            Окончание: <time dateTime={play.endsAt}>{cooldownDate(play.endsAt, zone, clock)}</time>
+          </p>
+          <div className="player-reminders__play-actions">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                void write({
+                  action: 'play',
+                  operation: 'extend',
+                  hours: 1,
+                  revision: play.revision,
+                })
+              }
+            >
+              Продлить на 1 ч.
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                void write({
+                  action: 'play',
+                  operation: 'stop',
+                  revision: play.revision,
+                })
+              }
+            >
+              Выключить
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p>Режим выключен. Подписки сохранены и ожидают включения.</p>
+          <label className="player-reminders__field">
+            Включить на
+            <select
+              aria-label="Включить на"
+              value={hours}
+              onChange={(event) => setHours(event.target.value)}
+            >
+              {[2, 4, 6].map((value) => (
+                <option key={value} value={value}>
+                  {value} часа
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="player-reminders__button"
+            disabled={busy}
+            onClick={() =>
+              void write({
+                action: 'play',
+                operation: 'start',
+                hours: Number(hours),
+                revision: play?.revision ?? null,
+              })
+            }
+          >
+            Включить «Я играю»
+          </button>
+        </>
+      )}
+    </>
+  )
+}
+
+function PlayPeriodDialogBody({
+  playerID,
+  zone,
+  busy,
+  write,
+  onSessionChanged,
+  onChanged,
+  onLoaded,
+}: {
+  playerID: number
+  zone: string
+  busy: boolean
+  write: ReminderWrite
+  onSessionChanged?: () => void
+  onChanged?: () => void
+  onLoaded?: (snapshot: PlaySnapshot) => void
+}) {
+  const [snapshot, setSnapshot] = useState<ReminderSnapshot | null>(null)
+  const [message, setMessage] = useState('')
+  const [checking, setChecking] = useState(true)
+  const [hours, setHours] = useState('4')
+  const clock = useServerClock(snapshot?.serverNow ?? '1970-01-01T00:00:00Z')
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await fetch('/api/account/reminders', { cache: 'no-store', signal })
+        if (signal?.aborted) return
+        if (response.status === 401) {
+          onSessionChanged?.()
+          throw new Error('Сессия изменилась. Войдите заново.')
+        }
+        if (!response.ok) throw new Error('Не удалось загрузить игровой период.')
+        const data: ReminderSnapshot = await response.json()
+        if (signal?.aborted) return
+        if (data.playerID !== playerID) {
+          onSessionChanged?.()
+          throw new Error('Сессия изменилась. Войдите заново.')
+        }
+        setSnapshot(data)
+        onLoaded?.(data)
+      } catch (error) {
+        if (!signal?.aborted) {
+          setSnapshot(null)
+          setMessage(
+            error instanceof Error ? error.message : 'Не удалось загрузить игровой период.',
+          )
+        }
+      } finally {
+        if (!signal?.aborted) setChecking(false)
+      }
+    },
+    [onSessionChanged, onLoaded, playerID],
+  )
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => void load(controller.signal), 0)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [load])
+
+  const update: ReminderWrite = async (body) => {
+    setMessage('')
+    const result = await write(body)
+    if (result.snapshot) {
+      setSnapshot(result.snapshot)
+      onChanged?.()
+    } else if (!result.ok) {
+      setMessage(result.message ?? 'Не удалось изменить игровой период.')
+      if (result.status === 409) {
+        setChecking(true)
+        await load()
+        onChanged?.()
+      }
+    }
+    return result
+  }
+  return (
+    <>
+      {checking && <p role="status">Загружаем игровой период…</p>}
+      {snapshot && (
+        <PlayPeriodControls
+          play={snapshot.play}
+          clock={clock}
+          zone={zone}
+          busy={busy || checking}
+          write={update}
+          hours={hours}
+          setHours={setHours}
+        />
+      )}
+      {message && <p role="alert">{message}</p>}
+      {!snapshot && !checking && (
+        <Button
+          variant="outline"
+          onClick={() => {
+            setMessage('')
+            setChecking(true)
+            void load()
+          }}
+        >
+          Повторить
+        </Button>
+      )}
+    </>
+  )
+}
+
+export function PlayPeriodDialog({
+  trigger,
+  ...body
+}: Parameters<typeof PlayPeriodDialogBody>[0] & { trigger: ReactElement }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!body.busy || value) setOpen(value)
+      }}
+    >
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="reminder-dialog" closeLabel="Закрыть управление игровым периодом">
+        <DialogTitle className="reminder-dialog__title">Я играю</DialogTitle>
+        <DialogDescription>Управление игровым периодом.</DialogDescription>
+        <PlayPeriodDialogBody {...body} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ReminderEditor({
   target,
   existing,
   playerID,
@@ -35,17 +280,22 @@ function ReminderEditor({
   busy,
   write,
   label = 'Напомнить',
+  compact = false,
+  trigger,
+  onSessionChanged,
 }: {
   target: Target
   existing?: ReminderView
   playerID: number
   zone: string
   busy: boolean
-  write: Write
+  write: ReminderWrite
   label?: string
+  compact?: boolean
+  trigger?: ReactElement
+  onSessionChanged?: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [kind, setKind] = useState<ReminderKind>(existing?.kind ?? 'once')
   const [preset, setPreset] = useState('10')
   const [custom, setCustom] = useState('10')
   const [include, setInclude] = useState(true)
@@ -55,22 +305,26 @@ function ReminderEditor({
   const [previewFor, setPreviewFor] = useState('')
   const [message, setMessage] = useState('')
   const lead = Number(preset === 'custom' ? custom : preset)
-  const signature = `${target.id}:${kind}:${lead}`
+  const signature = `${target.id}:${lead}`
   const loadNumber = useRef(0)
   const loadPreview = useCallback(
     async (signal?: AbortSignal) => {
       const sequence = ++loadNumber.current
       setPreview(null)
-      setPreviewFor(`${target.id}:${kind}:${lead}`)
+      setPreviewFor(`${target.id}:${lead}`)
       setLoading(true)
       try {
         if (!validLead(lead)) throw new Error('Введите целое число от 1 до 120 минут.')
         const response = await fetch(
-          `/api/account/reminders?preview=1&eventID=${target.id}&kind=${kind}&leadMinutes=${lead}`,
+          `/api/account/reminders?preview=1&eventID=${target.id}&kind=regular&leadMinutes=${lead}`,
           { cache: 'no-store', signal },
         )
         const data = await response.json()
         if (signal?.aborted || sequence !== loadNumber.current) return
+        if (response.status === 401 || (response.ok && data.playerID !== playerID)) {
+          onSessionChanged?.()
+          throw new Error('Сессия изменилась. Войдите заново.')
+        }
         if (!response.ok || data.playerID !== playerID)
           throw new Error(data.message ?? 'Сессия изменилась. Обновите страницу.')
         setPreview(data)
@@ -82,7 +336,7 @@ function ReminderEditor({
         if (sequence === loadNumber.current) setLoading(false)
       }
     },
-    [target.id, kind, lead, playerID],
+    [target.id, lead, playerID, onSessionChanged],
   )
   useEffect(() => {
     if (!open) return
@@ -99,9 +353,8 @@ function ReminderEditor({
     previewFor === signature &&
     !loading &&
     validLead(lead) &&
-    (kind === 'regular'
-      ? preview.reason !== 'Ивент недоступен.' && !preview.reason?.includes('нет расписания')
-      : !!preview.proposal)
+    preview.reason !== 'Ивент недоступен.' &&
+    !preview.reason?.includes('нет расписания')
   return (
     <Dialog
       open={open}
@@ -109,7 +362,6 @@ function ReminderEditor({
         if (busy && !value) return
         if (value) {
           const minutes = existing?.leadMinutes ?? 10
-          setKind(existing?.kind ?? 'once')
           setPreset([5, 10, 15, 30].includes(minutes) ? String(minutes) : 'custom')
           setCustom(String(minutes))
           setInclude(existing?.includeCooldown ?? true)
@@ -121,15 +373,46 @@ function ReminderEditor({
       }}
     >
       <DialogTrigger asChild>
-        <button type="button" className="player-reminders__button" disabled={busy}>
-          {label}
-        </button>
+        {trigger ??
+          (compact ? (
+            <Button
+              type="button"
+              size="icon-lg"
+              variant="ghost"
+              disabled={busy}
+              aria-label={label}
+              title={label}
+            >
+              <Pencil aria-hidden="true" />
+            </Button>
+          ) : (
+            <button type="button" className="player-reminders__button" disabled={busy}>
+              {label}
+            </button>
+          ))}
       </DialogTrigger>
       <DialogContent className="reminder-dialog" closeLabel="Закрыть напоминание">
         <DialogTitle className="reminder-dialog__title">Напомнить: {target.name}</DialogTitle>
         <DialogDescription>
           Настройте напоминание. Отправка сообщений пока не подключена.
         </DialogDescription>
+        <p>
+          <strong>Внимание!</strong> Напоминания работают только при включённом режиме{' '}
+          <PlayPeriodDialog
+            trigger={
+              <button type="button" className="reminder-dialog__play-link" disabled={busy}>
+                «Я играю»
+              </button>
+            }
+            playerID={playerID}
+            zone={zone}
+            busy={busy}
+            write={write}
+            onSessionChanged={onSessionChanged}
+            onChanged={() => void loadPreview()}
+          />
+          .
+        </p>
         <form
           className="reminder-dialog__form"
           onSubmit={async (event) => {
@@ -138,12 +421,12 @@ function ReminderEditor({
             const result = await write({
               action: 'save',
               eventID: target.id,
-              kind,
+              kind: 'regular',
               leadMinutes: lead,
               includeCooldown: include,
               enabled,
-              launchAt: kind === 'once' ? preview.proposal!.launchAt : null,
-              revision: preview.revision,
+              launchAt: null,
+              revision: trigger ? null : preview.revision,
             })
             if (result.ok) setOpen(false)
             else {
@@ -184,34 +467,16 @@ function ReminderEditor({
               />
             </label>
           )}
-          <label className="player-reminders__field">
-            Режим напоминания
-            <select
-              aria-label="Режим напоминания"
-              value={kind}
-              onChange={(event) => setKind(event.target.value as ReminderKind)}
-              disabled={busy}
-            >
-              <option value="once">Один запуск</option>
-              <option value="regular">Пока я играю</option>
-            </select>
-          </label>
-          {kind === 'regular' && (
-            <>
-              <p>
-                Регулярные напоминания действуют, пока включён режим «Я играю». Сохранение подписки
-                не включает его.
-              </p>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(event) => setEnabled(event.target.checked)}
-                  disabled={busy}
-                />{' '}
-                Подписка включена
-              </label>
-            </>
+          {!trigger && (
+            <label>
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(event) => setEnabled(event.target.checked)}
+                disabled={busy}
+              />{' '}
+              Подписка включена
+            </label>
           )}
           <label>
             <input
@@ -302,18 +567,20 @@ export function PlayerReminders({
   initial,
   timeZone,
   event,
+  pageHeading = false,
 }: {
   initial: ReminderSnapshot
   timeZone: string
   event?: Target
+  pageHeading?: boolean
 }) {
   const [snapshot, setSnapshot] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [checking, setChecking] = useState(false)
   const [verified, setVerified] = useState(true)
   const [sessionChanged, setSessionChanged] = useState(false)
-  const [message, setMessage] = useState('')
   const [hours, setHours] = useState('4')
+  const [message, setMessage] = useState('')
   const [deleting, setDeleting] = useState<number | null>(null)
   const zone = useTimeZone(normalizeTimeZone(timeZone))
   const clock = useServerClock(snapshot.serverNow)
@@ -325,10 +592,11 @@ export function PlayerReminders({
   const dueReload = useRef('')
   const endpoint = `/api/account/reminders${event ? `?eventID=${event.id}` : ''}`
   const changeSession = useCallback(() => {
+    publishPlayPeriod(initial.playerID, null)
     setSnapshot((value) => ({ ...value, play: null, reminders: [] }))
     setSessionChanged(true)
     setDeleting(null)
-  }, [])
+  }, [initial.playerID])
   const reload = useCallback(async () => {
     if (mutating.current) return
     controller.current?.abort()
@@ -369,21 +637,28 @@ export function PlayerReminders({
     }
     window.addEventListener('focus', resume)
     window.addEventListener('pageshow', resume)
+    window.addEventListener(COOLDOWN_CHANGED_EVENT, resume)
     document.addEventListener('visibilitychange', resume)
     return () => {
       window.removeEventListener('focus', resume)
       window.removeEventListener('pageshow', resume)
+      window.removeEventListener(COOLDOWN_CHANGED_EVENT, resume)
       document.removeEventListener('visibilitychange', resume)
       controller.current?.abort()
     }
   }, [reload])
+  useEffect(
+    () =>
+      subscribePlayPeriod(initial.playerID, (play) => {
+        if (play) void reload()
+      }),
+    [initial.playerID, reload],
+  )
+  const regularReminders = snapshot.reminders.filter((row) => row.kind === 'regular')
   const due = active
-    ? snapshot.reminders.find(
+    ? regularReminders.find(
         (row) =>
-          row.kind === 'regular' &&
-          row.enabled &&
-          row.proposal &&
-          Date.parse(row.proposal.remindAt) <= Date.parse(clock),
+          row.enabled && row.proposal && Date.parse(row.proposal.remindAt) <= Date.parse(clock),
       )
     : null
   useEffect(() => {
@@ -394,7 +669,7 @@ export function PlayerReminders({
     }
   }, [due, reload])
 
-  const write: Write = async (body) => {
+  const write: ReminderWrite = async (body) => {
     if (mutating.current || sessionChanged)
       return { ok: false, message: 'Операция уже выполняется или сессия изменилась.' }
     mutating.current = true
@@ -409,7 +684,10 @@ export function PlayerReminders({
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(body.action === 'play' ? { 'X-Reminder-Player': String(initial.playerID) } : {}),
+        },
         body: JSON.stringify({ ...body, requestID: pending.current.requestID }),
         cache: 'no-store',
       })
@@ -421,7 +699,7 @@ export function PlayerReminders({
       if (!response.ok) {
         setMessage(data.message)
         if (response.status === 409) pending.current = null
-        return { ok: false, ...data }
+        return { ok: false, ...data, status: response.status }
       }
       if (data.playerID !== initial.playerID) {
         changeSession()
@@ -429,10 +707,11 @@ export function PlayerReminders({
       }
       setSnapshot(data)
       setVerified(true)
+      if (body.action === 'play') publishPlayPeriod(initial.playerID, data)
       pending.current = null
       setDeleting(null)
       setMessage(DELIVERY_NOTICE)
-      return { ok: true }
+      return { ok: true, snapshot: data }
     } catch {
       const message = 'Не удалось сохранить настройки. Проверьте связь и повторите.'
       setMessage(message)
@@ -443,15 +722,10 @@ export function PlayerReminders({
     }
   }
   const rowStatus = (row: ReminderView) => {
-    if (row.status === 'invalid')
-      return 'Расписание или ивент недоступны. Требуется перевыбрать запуск.'
-    if (row.kind === 'once')
-      return row.proposal && Date.parse(row.proposal.remindAt) <= Date.parse(clock)
-        ? 'Время напоминания прошло. Отправка не подключена.'
-        : 'Один запуск'
+    if (row.status === 'invalid') return 'Расписание или ивент недоступны.'
     if (!row.enabled) return 'Подписка отключена'
     if (!active) return 'Ожидает включения «Я играю»'
-    if (!row.proposal) return 'В оставшийся период подходящих запусков нет'
+    if (!row.proposal) return 'В оставшийся период нет запусков, подходящих по времени и вашему КД'
     return 'Пока я играю'
   }
   return (
@@ -460,7 +734,7 @@ export function PlayerReminders({
       aria-label={event ? 'Напоминания об ивенте' : 'Напоминания'}
       aria-busy={busy || checking}
     >
-      <h2>Напоминания</h2>
+      {pageHeading ? <h1>Напоминания</h1> : <h2>Напоминания</h2>}
       <p>Отправка сообщений пока не подключена.</p>
       {sessionChanged ? (
         <p>Сессия изменилась. Обновите страницу или войдите заново.</p>
@@ -471,138 +745,162 @@ export function PlayerReminders({
       ) : (
         <>
           {event ? (
-            <ReminderEditor
-              target={event}
-              playerID={initial.playerID}
-              zone={zone}
-              busy={busy}
-              write={write}
-            />
+            !regularReminders.length && (
+              <ReminderEditor
+                target={event}
+                playerID={initial.playerID}
+                zone={zone}
+                busy={busy}
+                write={write}
+                onSessionChanged={changeSession}
+              />
+            )
           ) : (
             <section className="player-reminders__play" aria-label="Режим Я играю">
               <h3>Я играю</h3>
-              {active && snapshot.play ? (
-                <>
-                  <p>Режим включён. Осталось: {remainingCooldown(snapshot.play.endsAt, clock)}</p>
-                  <p>
-                    Окончание:{' '}
-                    <time dateTime={snapshot.play.endsAt}>
-                      {cooldownDate(snapshot.play.endsAt, zone, clock)}
-                    </time>
-                  </p>
-                  <div className="player-reminders__actions">
-                    {[1, 2].map((hours) => (
-                      <button
-                        key={hours}
-                        className="player-reminders__button"
-                        disabled={busy}
-                        onClick={() =>
-                          void write({
-                            action: 'play',
-                            operation: 'extend',
-                            hours,
-                            revision: snapshot.play!.revision,
-                          })
-                        }
-                      >
-                        Продлить на {hours} ч.
-                      </button>
-                    ))}
-                    <button
-                      className="player-reminders__button"
-                      disabled={busy}
-                      onClick={() =>
-                        void write({
-                          action: 'play',
-                          operation: 'stop',
-                          revision: snapshot.play!.revision,
-                        })
-                      }
-                    >
-                      Выключить «Я играю»
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p>Режим выключен. Подписки сохранены и ожидают включения.</p>
-                  <label className="player-reminders__field">
-                    Включить на
-                    <select
-                      aria-label="Включить на"
-                      value={hours}
-                      onChange={(event) => setHours(event.target.value)}
-                    >
-                      {[2, 4, 6].map((value) => (
-                        <option key={value} value={value}>
-                          {value} часа
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    className="player-reminders__button"
-                    disabled={busy}
-                    onClick={() =>
-                      void write({
-                        action: 'play',
-                        operation: 'start',
-                        hours: Number(hours),
-                        revision: snapshot.play?.revision ?? null,
-                      })
-                    }
-                  >
-                    Включить «Я играю»
-                  </button>
-                </>
-              )}
+              <PlayPeriodControls
+                play={snapshot.play}
+                clock={clock}
+                zone={zone}
+                busy={busy}
+                write={write}
+                hours={hours}
+                setHours={setHours}
+              />
               <p>
                 И предупреждение, и запуск должны попасть в период игры. Пропущенные предупреждения
-                не догоняем. Разовые напоминания от этого режима не зависят.
+                не догоняем.
               </p>
             </section>
           )}
-          {(['once', 'regular'] as const).map((kind) => (
-            <section
-              key={kind}
-              aria-label={kind === 'once' ? 'Разовые напоминания' : 'Регулярные подписки'}
-            >
-              <h3>{kind === 'once' ? 'Разовые напоминания' : 'Регулярные подписки'}</h3>
-              {!snapshot.reminders.some((row) => row.kind === kind) ? (
-                <p>{kind === 'once' ? 'Разовых напоминаний нет.' : 'Регулярных подписок нет.'}</p>
-              ) : (
-                <ul className="player-reminders__list">
-                  {snapshot.reminders
-                    .filter((row) => row.kind === kind)
-                    .map((row) => (
-                      <li key={row.id} className="player-reminders__item">
-                        <h4>
-                          {row.slug ? (
-                            <Link href={`/events/${row.slug}`}>{row.name}</Link>
-                          ) : (
-                            row.name
-                          )}
-                        </h4>
-                        <p>{rowStatus(row)}</p>
-                        <p>
-                          За {row.leadMinutes} мин. ·{' '}
-                          {row.includeCooldown ? 'Показывать личный КД' : 'Без сведений о КД'}
-                        </p>
-                        {row.proposal && (kind === 'once' || (active && row.enabled)) && (
-                          <>
-                            <p>
-                              Запуск:{' '}
-                              <time dateTime={row.proposal.launchAt}>
-                                {cooldownDate(row.proposal.launchAt, zone, clock)}
-                              </time>
-                            </p>
-                            <p>
-                              Напоминание:{' '}
-                              <time dateTime={row.proposal.remindAt}>
-                                {cooldownDate(row.proposal.remindAt, zone, clock)}
-                              </time>
-                            </p>
-                            {row.status !== 'invalid' && (
+          <section aria-label="Регулярные подписки">
+            <h3>Регулярные подписки</h3>
+            {!regularReminders.length ? (
+              <p>Регулярных подписок нет.</p>
+            ) : (
+              <ul className="player-reminders__list">
+                {regularReminders.map((row) => {
+                  const toggleLabel = row.enabled ? 'Отключить подписку' : 'Включить подписку'
+                  const toggle = () =>
+                    void write({
+                      action: 'toggle',
+                      id: row.id,
+                      enabled: !row.enabled,
+                      revision: row.revision,
+                    })
+                  const remove = () =>
+                    void write({ action: 'delete', id: row.id, revision: row.revision })
+                  const editor = row.eventID && row.slug && (
+                    <ReminderEditor
+                      target={{ id: row.eventID, name: row.name }}
+                      existing={row}
+                      playerID={initial.playerID}
+                      onSessionChanged={changeSession}
+                      zone={zone}
+                      busy={busy}
+                      write={write}
+                      compact
+                      label="Изменить подписку"
+                    />
+                  )
+                  const title = (
+                    <h4>
+                      {row.slug ? <Link href={`/events/${row.slug}`}>{row.name}</Link> : row.name}
+                    </h4>
+                  )
+                  return (
+                    <li key={row.id} className="player-reminders__item">
+                      <div className="player-reminders__item-header">
+                        {title}
+                        <div className="player-reminders__icon-actions">
+                          {editor}
+                          <Button
+                            type="button"
+                            size="icon-lg"
+                            variant="ghost"
+                            disabled={busy}
+                            className={
+                              row.enabled
+                                ? 'text-green-700 hover:text-green-700 dark:text-green-400 dark:hover:text-green-400'
+                                : 'text-destructive hover:text-destructive'
+                            }
+                            aria-label={toggleLabel}
+                            title={toggleLabel}
+                            onClick={toggle}
+                          >
+                            {row.enabled ? (
+                              <BellRing aria-hidden="true" />
+                            ) : (
+                              <BellOff aria-hidden="true" />
+                            )}
+                          </Button>
+                          <AlertDialog
+                            open={deleting === row.id}
+                            onOpenChange={(open) => {
+                              if (busy) return
+                              if (open) setMessage('')
+                              setDeleting(open ? row.id : null)
+                            }}
+                          >
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon-lg"
+                                variant="ghost"
+                                disabled={busy}
+                                aria-label="Удалить подписку"
+                                title="Удалить подписку"
+                              >
+                                <Trash2 aria-hidden="true" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto wrap-anywhere">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Удалить подписку?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Вы уверены, что хотите удалить регулярную подписку на ивент „
+                                  {row.name}“? Это действие нельзя отменить.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              {message && <p role="alert">{message}</p>}
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={busy}>Отмена</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className={buttonVariants({ variant: 'destructive' })}
+                                  disabled={busy}
+                                  onClick={(click) => {
+                                    click.preventDefault()
+                                    remove()
+                                  }}
+                                >
+                                  Удалить
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                      <p>{rowStatus(row)}</p>
+                      <p>
+                        За {row.leadMinutes} мин. ·{' '}
+                        {row.includeCooldown ? 'Показывать личный КД' : 'Без сведений о КД'}
+                      </p>
+                      {row.proposal && active && row.enabled && (
+                        <>
+                          <p>
+                            Запуск:{' '}
+                            <time dateTime={row.proposal.launchAt}>
+                              {cooldownDate(row.proposal.launchAt, zone, clock)}
+                            </time>
+                          </p>
+                          <p>
+                            Напоминание:{' '}
+                            <time dateTime={row.proposal.remindAt}>
+                              {cooldownDate(row.proposal.remindAt, zone, clock)}
+                            </time>
+                          </p>
+                          {row.status !== 'invalid' &&
+                            Date.parse(row.proposal.remindAt) > Date.parse(clock) && (
                               <>
                                 <p className="player-reminders__preview">
                                   Предпросмотр:{' '}
@@ -622,71 +920,14 @@ export function PlayerReminders({
                                 </p>
                               </>
                             )}
-                          </>
-                        )}
-                        <div className="player-reminders__actions">
-                          {row.eventID && row.slug && (
-                            <ReminderEditor
-                              target={{ id: row.eventID, name: row.name }}
-                              existing={row}
-                              playerID={initial.playerID}
-                              zone={zone}
-                              busy={busy}
-                              write={write}
-                              label="Изменить"
-                            />
-                          )}
-                          {kind === 'regular' && (
-                            <button
-                              className="player-reminders__button"
-                              disabled={busy}
-                              onClick={() =>
-                                void write({
-                                  action: 'toggle',
-                                  id: row.id,
-                                  enabled: !row.enabled,
-                                  revision: row.revision,
-                                })
-                              }
-                            >
-                              {row.enabled ? 'Отключить подписку' : 'Включить подписку'}
-                            </button>
-                          )}
-                          <button
-                            className="player-reminders__button"
-                            disabled={busy}
-                            onClick={() => setDeleting(row.id)}
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                        {deleting === row.id && (
-                          <div role="group" aria-label="Подтверждение удаления">
-                            <p>Удалить эту настройку?</p>
-                            <button
-                              className="player-reminders__button"
-                              disabled={busy}
-                              onClick={() =>
-                                void write({ action: 'delete', id: row.id, revision: row.revision })
-                              }
-                            >
-                              Да, удалить
-                            </button>
-                            <button
-                              className="player-reminders__button"
-                              disabled={busy}
-                              onClick={() => setDeleting(null)}
-                            >
-                              Оставить
-                            </button>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </section>
-          ))}
+                        </>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
         </>
       )}
       {message && <p role="status">{message}</p>}

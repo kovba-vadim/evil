@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
-import { PublicShell } from '@/components/public/public-shell'
 import { ThemeProvider } from '@/components/public/theme-provider'
 import './styles.css'
 import './account.scss'
+import '@/components/public/breadcrumbs.scss'
 import '@/components/public/player-cooldowns.scss'
 import '@/components/public/player-reminders.scss'
-import { AccountNav } from '@/components/public/account-nav'
+import { AccountShell } from '@/components/public/account-nav'
+import { NavigationHistory } from '@/components/public/navigation-history'
+import { ScrollToTop } from '@/components/public/scroll-to-top'
 
 export const metadata: Metadata = {
   title: { default: 'EvilIsland', template: '%s — EvilIsland' },
@@ -23,7 +25,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           >
             Перейти к содержимому
           </a>
-          <PublicShell accountNav={<AccountNav />}>{children}</PublicShell>
+          <AccountShell>{children}</AccountShell>
+          <NavigationHistory />
+          <ScrollToTop />
         </ThemeProvider>
       </body>
     </html>

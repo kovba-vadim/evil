@@ -26,14 +26,18 @@ test('craft includes only active results with canonical links, type labels and s
         const doc = await fixtures.create(kind, {
           ...named(),
           _order: `a${String.fromCharCode(65 + index)}`,
-          ...(kind === 'clothing' ? { equipmentSet: index % 2 ? set.id : null } : {}),
+          ...(kind === 'clothing' ? { category: index % 2 ? 'set' : 'ring', equipmentSet: index % 2 ? set.id : null } as const : {}),
           craftable: true,
           recipe: { coins: 0, ordinaryIngredients: [{ item: ingredient.id, quantity: 1 }] },
         })
         group.push({ ...doc, kind, label })
       }
       expected.push(...group.reverse())
-      inactive.push(await fixtures.create(kind, { ...named(), craftable: false }))
+      inactive.push(await fixtures.create(kind, {
+        ...named(),
+        ...(kind === 'clothing' ? { category: 'hazmat' as const } : {}),
+        craftable: false,
+      }))
     }
     for (const mobile of [false, true]) {
       await page.setViewportSize(
@@ -46,7 +50,7 @@ test('craft includes only active results with canonical links, type labels and s
       await expect(links).toHaveCount(36)
       for (let index = 0; index < expected.length; index++) {
         const doc = expected[index]
-        await expect(links.nth(index)).toHaveAttribute('href', publicRecordURL(doc.kind, doc.slug)!)
+        await expect(links.nth(index)).toHaveAttribute('href', `${publicRecordURL(doc.kind, doc.slug)}`)
         await expect(links.nth(index)).toContainText(doc.name)
         await expect(links.nth(index)).toContainText(doc.label)
       }
@@ -65,7 +69,7 @@ test('craft includes only active results with canonical links, type labels and s
       for (const kind of ['resources', 'clothing', 'weapons'] as const) {
         const doc = expected.find((doc) => doc.kind === kind)!
         await page.getByRole('link', { name: doc.name, exact: true }).click()
-        await expect(page).toHaveURL(publicRecordURL(kind, doc.slug)!)
+        await expect(page).toHaveURL(`${publicRecordURL(kind, doc.slug)}`)
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(doc.name)
         await page.goto('/craft')
       }

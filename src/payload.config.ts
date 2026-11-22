@@ -8,6 +8,7 @@ import sharp from 'sharp'
 import { Users } from './collections/Users'
 import { Players } from './collections/Players'
 import { PlayerEventCooldowns } from './collections/PlayerEventCooldowns'
+import { PlayerQuestCooldowns } from './collections/PlayerQuestCooldowns'
 import { PlayerEventReminders } from './collections/PlayerEventReminders'
 import { PlayerPlaySessions } from './collections/PlayerPlaySessions'
 import { authenticated } from './access/authenticated'
@@ -54,6 +55,7 @@ export default buildConfig({
     Users,
     Players,
     PlayerEventCooldowns,
+    PlayerQuestCooldowns,
     PlayerEventReminders,
     PlayerPlaySessions,
     Media,
@@ -75,6 +77,8 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: postgresAdapter({
+    // Apply reviewed schema changes explicitly. The generic push proposes unrelated DDL.
+    push: false,
     pool: {
       connectionString: process.env.DATABASE_URL || '',
     },

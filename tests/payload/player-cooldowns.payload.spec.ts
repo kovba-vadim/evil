@@ -46,7 +46,7 @@ beforeAll(async () => {
           name: `КД ${crypto.randomUUID()}`,
           slug: `cooldown-${crypto.randomUUID()}`,
           coins: 0,
-          cooldownMinutes: minutes,
+          durationMinutes: 30, cooldownMinutes: minutes,
         },
       }),
     )

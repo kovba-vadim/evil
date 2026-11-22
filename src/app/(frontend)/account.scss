@@ -68,19 +68,13 @@
   gap: 0.5rem 1rem;
 }
 .account-form a,
-.account-nav a,
-.account-nav button {
+.account-nav a {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 .account-nav {
   margin-left: auto;
   font-size: 0.875rem;
-}
-.account-nav__logout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 @media (max-width: 420px) {
   .account-nav {

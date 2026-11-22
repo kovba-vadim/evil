@@ -1,0 +1,18 @@
+.quest-catalog__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  height: auto;
+  gap: 0.25rem;
+}
+
+.quest-catalog__tab {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.quest-catalog__results {
+  overflow-wrap: anywhere;
+}

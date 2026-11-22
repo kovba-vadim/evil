@@ -1,3 +1,5 @@
+import { shopFields } from '../fields/shopFields'
+import { hideInactiveShop, validateShop } from '../hooks/shop'
 import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
@@ -15,11 +17,16 @@ export const OrdinaryItems: CollectionConfig = {
     update: authenticated,
     delete: authenticated,
   },
-  hooks: { beforeDelete: [preventIngredientDeletion('item')] },
+  hooks: {
+    beforeChange: [validateShop],
+    afterRead: [hideInactiveShop],
+    beforeDelete: [preventIngredientDeletion('item')],
+  },
   fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
     { name: 'description', label: 'Описание', type: 'richText' },
+    shopFields(),
   ]),
 }

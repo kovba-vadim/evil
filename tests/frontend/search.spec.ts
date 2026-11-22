@@ -31,8 +31,9 @@ test('global search is bounded, ranked, keyboard accessible and works through mo
         const doc = await fixtures.create(kind, {
           ...named(),
           name: common,
+          ...(kind === 'clothing' ? { category: 'ring' as const } : {}),
           coins: 0,
-          cooldownMinutes: 0,
+          ...(kind === 'events' ? { durationMinutes: 30, cooldownMinutes: 0 } : {}),
         })
         docs.push({ kind, label, id: doc.id, slug: doc.slug, name: common })
       }

@@ -68,6 +68,7 @@ beforeAll(async () => {
           name: `Напоминания ${requestID()}`,
           slug: `reminder-${requestID()}`,
           coins: 0,
+          durationMinutes: 30,
           cooldownMinutes: 10,
           launchTimes: ids,
         },
@@ -90,7 +91,7 @@ afterAll(async () => {
         collection: 'player-event-cooldowns',
         overrideAccess: true,
         context: { cooldownWrite: cooldownWriteCapability },
-        where: { player: { equals: player.id } },
+        where: { player: { in: [player.id, other.id] } },
       })
     for (const event of events)
       await api.delete({ collection: 'events', id: event.id, overrideAccess: true })
@@ -102,7 +103,7 @@ afterAll(async () => {
     await api?.destroy()
   }
 })
-const save = async (kind: 'once' | 'regular', actor = player, event = events[0], lead = 10) => {
+const save = async (kind: 'regular', actor = player, event = events[0], lead = 10) => {
   const preview = await previewReminder(api, actor, event.id, kind, lead)
   const action: ReminderAction = {
     action: 'save',
@@ -111,7 +112,7 @@ const save = async (kind: 'once' | 'regular', actor = player, event = events[0],
     leadMinutes: lead,
     includeCooldown: true,
     enabled: true,
-    launchAt: kind === 'once' ? preview.proposal!.launchAt : null,
+    launchAt: null,
     revision: preview.revision,
     requestID: requestID(),
   }
@@ -119,21 +120,56 @@ const save = async (kind: 'once' | 'regular', actor = player, event = events[0],
 }
 
 describe('reminders and play mode through Payload on isolated PostgreSQL', () => {
-  it('stores once and regular settings independently, serializes retries and enforces database uniqueness', async () => {
-    const { action } = await save('once')
+  it('preserves legacy once rows, serializes retries and enforces regular uniqueness', async () => {
+    const legacy = await api.create({
+      collection: 'player-event-reminders',
+      context,
+      overrideAccess: true,
+      data: {
+        player: player.id,
+        event: events[0].id,
+        kind: 'once',
+        leadMinutes: 10,
+        includeCooldown: true,
+        enabled: true,
+        revision: requestID(),
+        requestID: requestID(),
+        launchAt: '2026-11-14T16:00:00.000Z',
+        remindAt: '2026-11-14T15:50:00.000Z',
+      },
+    })
+    const { action } = await save('regular')
     const results = await Promise.all(
       Array.from({ length: 5 }, () => mutatePlayerReminders(api, player, action)),
     )
-    expect(results[0].reminders[0].proposal?.launchAt).toBe('2026-11-14T16:00:00.000Z')
+    expect(results[0].reminders[0].proposal).toBeNull()
     expect(new Set(results.map((value) => value.reminders[0].revision)).size).toBe(1)
-    const regular = await save('regular')
-    const snapshot = await mutatePlayerReminders(api, player, regular.action)
-    expect(snapshot.reminders).toHaveLength(2)
+    const snapshot = results[0]
+    expect(snapshot.reminders).toHaveLength(1)
     expect(snapshot.play).toBeNull()
-    expect(snapshot.reminders.find((row) => row.kind === 'regular')?.status).toBe('waiting')
-    const raw = (
-      await api.find({ collection: 'player-event-reminders', user: player, overrideAccess: false })
-    ).docs[0]
+    expect(snapshot.reminders[0].status).toBe('waiting')
+    await mutatePlayerReminders(api, player, {
+      action: 'delete',
+      id: legacy.id,
+      revision: legacy.revision,
+      requestID: requestID(),
+    })
+    expect(
+      await api.findByID({
+        collection: 'player-event-reminders',
+        id: legacy.id,
+        context,
+        overrideAccess: true,
+        depth: 0,
+      }),
+    ).toMatchObject({
+      kind: 'once',
+      enabled: legacy.enabled,
+      launchAt: legacy.launchAt,
+      remindAt: legacy.remindAt,
+      revision: legacy.revision,
+      updatedAt: legacy.updatedAt,
+    })
     await expect(
       api.create({
         collection: 'player-event-reminders',
@@ -142,7 +178,7 @@ describe('reminders and play mode through Payload on isolated PostgreSQL', () =>
         data: {
           player: player.id,
           event: events[0].id,
-          kind: raw.kind,
+          kind: 'regular',
           leadMinutes: 10,
           includeCooldown: true,
           enabled: true,
@@ -151,22 +187,6 @@ describe('reminders and play mode through Payload on isolated PostgreSQL', () =>
         },
       }),
     ).rejects.toThrow()
-  })
-  it('returns a refreshed proposal if warning passed; does not silently replace the saved launch', async () => {
-    const proposal = await save('once', other, events[0], 5)
-    expect(proposal.preview.proposal?.launchAt).toBe('2026-11-14T15:25:00Z')
-    vi.setSystemTime('2026-11-14T15:21:00Z')
-    try {
-      await expect(mutatePlayerReminders(api, other, proposal.action)).rejects.toBeInstanceOf(
-        ReminderConflict,
-      )
-      expect((await getPlayerReminders(api, other)).reminders).toHaveLength(0)
-      const next = await save('once', other, events[0], 5)
-      expect(next.preview.proposal?.launchAt).toBe('2026-11-14T16:00:00Z')
-      await mutatePlayerReminders(api, other, next.action)
-    } finally {
-      vi.setSystemTime(baseNow)
-    }
   })
   it('starts, extends from the current end exactly once, expires without a job and preserves subscriptions', async () => {
     const started = await mutatePlayerReminders(api, player, {
@@ -219,7 +239,7 @@ describe('reminders and play mode through Payload on isolated PostgreSQL', () =>
         revision: restarted.play!.revision,
         requestID: requestID(),
       })
-      expect(stopped.reminders).toHaveLength(2)
+      expect(stopped.reminders).toHaveLength(1)
       expect(stopped.reminders.find((row) => row.kind === 'regular')?.status).toBe('waiting')
     } finally {
       vi.setSystemTime(baseNow)
@@ -258,29 +278,64 @@ describe('reminders and play mode through Payload on isolated PostgreSQL', () =>
       requestID: requestID(),
     })
     expect(snapshot.reminders.some((value) => value.id === row.id)).toBe(false)
-    expect((await previewReminder(api, player, events[2].id, 'once', 10)).reason).toContain(
+    expect((await previewReminder(api, player, events[2].id, 'regular', 10)).reason).toContain(
       'нет расписания',
     )
   })
-  it('reads current cooldown without filtering launches or copying it into settings', async () => {
-    const before = await previewReminder(api, player, events[0].id, 'once', 10)
+  it('skips blocked regular launches even with the checkbox off and keeps subscriptions when no launch fits', async () => {
     const cooldown = await api.create({
       collection: 'player-event-cooldowns',
       overrideAccess: true,
       context: { cooldownWrite: cooldownWriteCapability },
       data: {
-        player: player.id,
+        player: other.id,
         event: events[0].id,
         completedAt: baseNow,
-        cooldownUntil: '2026-11-14T18:00:00Z',
+        cooldownUntil: '2026-11-14T15:55:00Z',
         cancelled: false,
         revision: requestID(),
         requestID: requestID(),
       },
     })
-    const after = await previewReminder(api, player, events[0].id, 'once', 10)
-    expect(after.proposal).toEqual(before.proposal)
-    expect(after.cooldownUntil).toBe('2026-11-14T18:00:00.000Z')
+    const selection = await save('regular', other, events[0], 5)
+    const saved = await mutatePlayerReminders(api, other, {
+      ...selection.action,
+      includeCooldown: false,
+    })
+    expect(saved.reminders.find((row) => row.kind === 'regular')?.proposal?.launchAt).toBe(
+      '2026-11-14T16:00:00Z',
+    )
+    const play = (
+      await api.find({ collection: 'player-play-sessions', user: other, overrideAccess: false })
+    ).docs[0]
+    await api.update({
+      collection: 'player-play-sessions',
+      id: play.id,
+      overrideAccess: true,
+      context,
+      data: { endsAt: '2026-11-14T15:30:00Z' },
+    })
+    const waiting = (await getPlayerReminders(api, other)).reminders.find(
+      (row) => row.kind === 'regular',
+    )!
+    expect(waiting.status).toBe('no-launch')
+    expect(waiting.enabled).toBe(true)
+    await api.update({
+      collection: 'events',
+      id: events[0].id,
+      overrideAccess: true,
+      data: { durationMinutes: 120 },
+    })
+    expect(
+      (await getPlayerReminders(api, other)).reminders.find((row) => row.kind === 'regular')
+        ?.proposal?.launchAt,
+    ).toBe('2026-11-14T15:25:00Z')
+    await api.update({
+      collection: 'events',
+      id: events[0].id,
+      overrideAccess: true,
+      data: { durationMinutes: 30 },
+    })
     await api.update({
       collection: 'player-event-cooldowns',
       id: cooldown.id,
@@ -288,28 +343,6 @@ describe('reminders and play mode through Payload on isolated PostgreSQL', () =>
       context: { cooldownWrite: cooldownWriteCapability },
       data: { cancelled: true },
     })
-    expect((await previewReminder(api, player, events[0].id, 'once', 10)).cooldownUntil).toBeNull()
-  })
-  it('marks past once settings honestly and flags schedule changes without moving stored instants', async () => {
-    vi.setSystemTime('2026-11-14T16:01:00Z')
-    expect(
-      (await getPlayerReminders(api, player)).reminders.find((row) => row.kind === 'once')?.status,
-    ).toBe('past')
-    vi.setSystemTime(baseNow)
-    const before = (await getPlayerReminders(api, player)).reminders.find(
-      (row) => row.kind === 'once',
-    )!
-    await api.update({
-      collection: 'events',
-      id: events[0].id,
-      overrideAccess: true,
-      data: { launchTimes: [] },
-    })
-    const after = (await getPlayerReminders(api, player)).reminders.find(
-      (row) => row.kind === 'once',
-    )!
-    expect(after.status).toBe('invalid')
-    expect(after.proposal).toEqual(before.proposal)
   })
   it('denies guest/foreign reads and native mutations of owner, dates or calculated results', async () => {
     for (const collection of ['player-event-reminders', 'player-play-sessions'] as const) {

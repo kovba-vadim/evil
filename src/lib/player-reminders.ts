@@ -1,5 +1,6 @@
 import { expandLaunches, type LaunchClock } from './event-launches'
 import { cooldownDate } from './player-cooldowns'
+import { eventEndAt, launchEligible } from './launch-eligibility'
 
 export type ReminderKind = 'once' | 'regular'
 export type LaunchProposal = { launchAt: string; remindAt: string }
@@ -15,7 +16,8 @@ export type ReminderView = {
   enabled: boolean
   revision: string
   proposal: LaunchProposal | null
-  status: 'scheduled' | 'past' | 'invalid' | 'waiting' | 'disabled' | 'no-launch'
+  status:
+    'scheduled' | 'past' | 'invalid' | 'waiting' | 'disabled' | 'no-launch' | 'cooldown-blocked'
   cooldownUntil: string | null
 }
 export type ReminderSnapshot = {
@@ -46,20 +48,28 @@ export function nextReminder(
   times: LaunchClock[],
   lead: number,
   now: string,
+  durationMinutes: number,
+  cooldownUntil: string | null,
   play?: PlayPeriod | null,
 ): LaunchProposal | null {
   if (!validLead(lead))
     throw new Error('Предупреждение должно быть целым числом от 1 до 120 минут.')
   if (!times.length || play === null || (play && !playingAt(play, now))) return null
   const warningStart = Math.max(Date.parse(now) + 1, play ? Date.parse(play.startedAt) : 0)
-  const start = warningStart + lead * 60_000
+  // Skip whole days for a long cooldown rather than imposing a 24-hour eligibility cap.
+  eventEndAt(now, durationMinutes)
+  const cooldownStart =
+    cooldownUntil && Date.parse(cooldownUntil) > Date.parse(now)
+      ? Date.parse(cooldownUntil) - durationMinutes * 60_000 + 1
+      : 0
+  const start = Math.max(warningStart + lead * 60_000, cooldownStart)
   const end = play ? Date.parse(play.endsAt) - 1 : start + 24 * 60 * 60_000
   if (start > end) return null
   const row = expandLaunches([{ event: { id: 1 }, times }], {
     start: new Date(start).toISOString(),
     end: new Date(end).toISOString(),
     mode: 'rolling',
-  })[0]
+  }).find((row) => launchEligible(row.instant, durationMinutes, cooldownUntil, now))
   return row
     ? {
         launchAt: row.instant,

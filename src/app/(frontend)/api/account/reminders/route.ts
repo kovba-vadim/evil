@@ -40,10 +40,10 @@ export async function GET(request: Request) {
     if (query.get('preview') === '1') {
       const kind = query.get('kind'),
         lead = Number(query.get('leadMinutes'))
-      if (!eventID || !['once', 'regular'].includes(kind ?? '') || !validLead(lead))
+      if (!eventID || kind !== 'regular' || !validLead(lead))
         return reply({ message: 'Проверьте параметры напоминания.' }, 400)
       return reply({
-        ...(await previewReminder(payload, user, eventID, kind as 'once' | 'regular', lead)),
+        ...(await previewReminder(payload, user, eventID, kind, lead)),
         playerID: user.id,
       })
     }
@@ -72,18 +72,13 @@ function parse(value: unknown): ReminderAction {
     ]
     if (
       !id(data.eventID) ||
-      !['once', 'regular'].includes(String(data.kind)) ||
+      data.kind !== 'regular' ||
       !validLead(data.leadMinutes) ||
       typeof data.includeCooldown !== 'boolean' ||
       typeof data.enabled !== 'boolean'
     )
       throw new Error()
-    if (
-      data.kind === 'once'
-        ? typeof data.launchAt !== 'string' || !Number.isFinite(Date.parse(data.launchAt))
-        : data.launchAt !== null
-    )
-      throw new Error()
+    if (data.launchAt !== null) throw new Error()
   } else if (data.action === 'delete' || data.action === 'toggle') {
     allowed = [
       'action',
@@ -123,6 +118,9 @@ export async function POST(request: Request) {
     return reply({ message: 'Слишком много запросов. Повторите позже.' }, 429)
   const { payload, user } = await playerSession()
   if (!user) return reply({ message: 'Необходимо войти.' }, 401)
+  const expectedPlayer = request.headers.get('X-Reminder-Player')
+  if (expectedPlayer !== null && expectedPlayer !== String(user.id))
+    return reply({ message: 'Сессия изменилась. Войдите заново.' }, 401)
   if (!consumeAttempt(`reminders:${user.id}`, 120))
     return reply({ message: 'Слишком много запросов. Повторите позже.' }, 429)
   let input: ReminderAction, eventID: number | undefined

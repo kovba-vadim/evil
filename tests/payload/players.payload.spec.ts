@@ -126,7 +126,7 @@ describe('players through Payload on isolated PostgreSQL', () => {
         collection: 'events',
         user: player,
         overrideAccess: false,
-        data: { name: 'Запрещено', slug: 'forbidden', coins: 0, cooldownMinutes: 0 },
+        data: { name: 'Запрещено', slug: 'forbidden', coins: 0, durationMinutes: 30, cooldownMinutes: 0 },
       }),
     ).rejects.toThrow()
     const access = api.collections.players.config.access.admin

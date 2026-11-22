@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/public/breadcrumbs'
 import { getEntryMetadata } from '@/queries/public-seo'
 import { notFound } from 'next/navigation'
 import { getPayload } from 'payload'
@@ -12,5 +13,10 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const { slug } = await params
   const detail = await getSetDetail(await getPayload({ config }), slug)
   if (!detail) notFound()
-  return <SetDetails detail={detail} />
+  return (
+    <>
+      <Breadcrumbs section="clothing" title={detail.item.name} />
+      <SetDetails detail={detail} />
+    </>
+  )
 }

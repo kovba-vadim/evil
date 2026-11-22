@@ -4,37 +4,94 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   cooldownDate,
+  COOLDOWN_CHANGED_EVENT,
+  QUEST_COOLDOWN_CHANGED_EVENT,
   remainingCooldown,
   type CooldownSnapshot,
   type PersonalCooldown,
+  type QuestCooldownSnapshot,
 } from '@/lib/player-cooldowns'
 import { useServerClock, useTimeZone } from './time-zone'
 import { normalizeTimeZone } from '@/lib/time-zones'
+import { GuestAccessDialog } from './guest-access-dialog'
+import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+
+type RecordView = PersonalCooldown | QuestCooldownSnapshot['records'][number]
+const recordID = (record: RecordView) => ('questID' in record ? record.questID : record.eventID)
+
+export function QuestCooldownGuest({ slug }: { slug: string }) {
+  return (
+    <GuestAccessDialog
+      title="Личный КД квеста"
+      closeLabel="Закрыть личный КД квеста"
+      returnTo={`/quests/${slug}`}
+      trigger={
+        <Button type="button" variant="outline">
+          Сдал
+        </Button>
+      }
+      description={({ register, login }) => (
+        <>
+          {register} или {login}, чтобы отмечать сдачу квестов и отслеживать личный КД.
+        </>
+      )}
+    />
+  )
+}
 
 export function PlayerCooldowns({
   initial,
   eventID,
   timeZone,
+  quest = false,
+  questID,
+  listTitle,
 }: {
-  initial: CooldownSnapshot
+  initial: CooldownSnapshot | QuestCooldownSnapshot
   eventID?: number
   timeZone: string
+  quest?: boolean
+  questID?: number
+  listTitle?: string
 }) {
-  const [snapshot, setSnapshot] = useState(initial)
+  const [snapshot, setSnapshot] = useState<{
+    playerID: number
+    serverNow: string
+    records: RecordView[]
+  }>(initial)
+  const detailID = quest ? questID : eventID
+  const idKey = quest ? 'questID' : 'eventID'
+  const params = quest
+    ? 'kind=quest' + (questID ? `&questID=${questID}` : '')
+    : eventID
+      ? `eventID=${eventID}`
+      : ''
   const displayZone = useTimeZone(normalizeTimeZone(timeZone))
   const [busy, setBusy] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [verified, setVerified] = useState(true)
   const [message, setMessage] = useState('')
   const [sessionChanged, setSessionChanged] = useState(false)
-  const [confirmation, setConfirmation] = useState<PersonalCooldown | null>(null)
+  const [confirmation, setConfirmation] = useState<RecordView | null>(null)
+  const cancelTrigger = useRef<HTMLButtonElement | null>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
   const clock = useServerClock(snapshot.serverNow)
   const now = Date.parse(clock)
   const sequence = useRef(0)
   const controller = useRef<AbortController | null>(null)
   const mutating = useRef(false)
   const pending = useRef<{
-    eventID: number
+    target: number
     requestID: string
     previousRevision: string | null
   } | null>(null)
@@ -53,10 +110,10 @@ export function PlayerCooldowns({
     setVerified(false)
     setConfirmation(null)
     try {
-      const response = await fetch(
-        `/api/account/cooldowns${eventID ? `?eventID=${eventID}` : ''}`,
-        { cache: 'no-store', signal: abort.signal },
-      )
+      const response = await fetch(`/api/account/cooldowns${params ? `?${params}` : ''}`, {
+        cache: 'no-store',
+        signal: abort.signal,
+      })
       if (abort.signal.aborted || requestNumber !== sequence.current) return
       if (response.status === 401) {
         sessionMismatch()
@@ -80,23 +137,25 @@ export function PlayerCooldowns({
     } finally {
       if (requestNumber === sequence.current) setVerifying(false)
     }
-  }, [eventID, initial.playerID, sessionMismatch])
+  }, [params, initial.playerID, sessionMismatch])
   useEffect(() => {
     const resume = () => {
       if (document.visibilityState === 'visible') void reload()
     }
     window.addEventListener('focus', resume)
     window.addEventListener('pageshow', resume)
+    if (quest) window.addEventListener(QUEST_COOLDOWN_CHANGED_EVENT, resume)
     document.addEventListener('visibilitychange', resume)
     return () => {
       window.removeEventListener('focus', resume)
       window.removeEventListener('pageshow', resume)
+      if (quest) window.removeEventListener(QUEST_COOLDOWN_CHANGED_EVENT, resume)
       document.removeEventListener('visibilitychange', resume)
       controller.current?.abort()
     }
-  }, [reload])
+  }, [quest, reload])
 
-  async function mutate(target: number, record?: PersonalCooldown) {
+  async function mutate(target: number, record?: RecordView) {
     if (mutating.current || sessionChanged) return
     mutating.current = true
     setBusy(true)
@@ -104,20 +163,28 @@ export function PlayerCooldowns({
     controller.current?.abort()
     sequence.current++
     setVerifying(false)
-    const current = snapshot.records.find((item) => item.eventID === target)
-    if (!record && (!pending.current || pending.current.eventID !== target))
+    const current = snapshot.records.find((item) => recordID(item) === target)
+    if (!record && (!pending.current || pending.current.target !== target))
       pending.current = {
-        eventID: target,
+        target,
         requestID: crypto.randomUUID(),
         previousRevision: current?.revision ?? null,
       }
     const body = record
-      ? { action: 'cancel', eventID: target, revision: record.revision }
-      : { action: 'complete', ...pending.current }
+      ? { action: 'cancel', [idKey]: target, revision: record.revision }
+      : {
+          action: 'complete',
+          [idKey]: target,
+          requestID: pending.current?.requestID,
+          previousRevision: pending.current?.previousRevision,
+        }
     try {
       const response = await fetch('/api/account/cooldowns', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(quest ? { 'X-Cooldown-Player': String(initial.playerID) } : {}),
+        },
         body: JSON.stringify(body),
         cache: 'no-store',
       })
@@ -137,12 +204,14 @@ export function PlayerCooldowns({
       setSnapshot((value) => ({
         ...value,
         serverNow: data.serverNow,
-        records: [...value.records.filter((item) => item.eventID !== target), ...data.records].sort(
-          (a, b) => a.cooldownUntil.localeCompare(b.cooldownUntil),
-        ),
+        records: [
+          ...value.records.filter((item) => recordID(item) !== target),
+          ...data.records,
+        ].sort((a, b) => a.cooldownUntil.localeCompare(b.cooldownUntil)),
       }))
       pending.current = null
       setConfirmation(null)
+      window.dispatchEvent(new Event(quest ? QUEST_COOLDOWN_CHANGED_EVENT : COOLDOWN_CHANGED_EVENT))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Не удалось сохранить отметку.')
     } finally {
@@ -153,8 +222,8 @@ export function PlayerCooldowns({
   const active = snapshot.records.filter(
     (record) => !record.cancelled && Date.parse(record.cooldownUntil) > now,
   )
-  const current = eventID ? snapshot.records.find((record) => record.eventID === eventID) : null
-  const end = (record: PersonalCooldown) => (
+  const current = detailID ? snapshot.records.find((record) => recordID(record) === detailID) : null
+  const end = (record: RecordView) => (
     <>
       <p className="personal-cooldowns__remaining">
         Осталось: {remainingCooldown(record.cooldownUntil, clock)}
@@ -167,12 +236,15 @@ export function PlayerCooldowns({
       </p>
     </>
   )
-  const cancel = (record: PersonalCooldown) => (
+  const cancel = (record: RecordView) => (
     <button
       className="personal-cooldowns__button"
       type="button"
       disabled={busy || verifying}
-      onClick={() => setConfirmation(record)}
+      onClick={(click) => {
+        cancelTrigger.current = click.currentTarget
+        setConfirmation(record)
+      }}
     >
       Отменить отметку
     </button>
@@ -180,10 +252,18 @@ export function PlayerCooldowns({
   return (
     <section
       className="personal-cooldowns"
-      aria-label={eventID ? 'Мой КД ивента' : 'Мои КД'}
+      aria-label={detailID ? (quest ? 'Мой КД квеста' : 'Мой КД ивента') : (listTitle ?? 'Мои КД')}
       aria-busy={busy || verifying}
     >
-      {eventID ? <h2>Мой КД</h2> : <h2>Мои КД</h2>}
+      {listTitle ? (
+        <h3 ref={heading} tabIndex={-1}>
+          {listTitle}
+        </h3>
+      ) : (
+        <h2 ref={heading} tabIndex={-1}>
+          {detailID ? 'Мой КД' : 'Мои КД'}
+        </h2>
+      )}
       {sessionChanged ? (
         <p>
           Сессия изменилась.{' '}
@@ -194,13 +274,13 @@ export function PlayerCooldowns({
           >
             Обновите страницу
           </button>{' '}
-          или <Link href="/login?returnTo=%2Faccount">войдите снова</Link>.
+          или <Link href="/login?returnTo=%2Faccount%2Fcooldowns">войдите снова</Link>.
         </p>
       ) : verifying || !verified ? (
         <p role="status">
           {verifying ? 'Обновляем личные КД…' : 'Обновите данные, чтобы показать личные КД.'}
         </p>
-      ) : eventID ? (
+      ) : detailID ? (
         <>
           {current && !current.cancelled ? (
             Date.parse(current.cooldownUntil) > now ? (
@@ -215,32 +295,34 @@ export function PlayerCooldowns({
                     ? 'Прохождение сохранено. У ивента нет личного КД.'
                     : 'КД закончился.'}
                 </p>
-                {cancel(current)}
+                {!quest && cancel(current)}
               </>
             )
           ) : (
-            <p>Сохраните прохождение этого ивента.</p>
+            <p>{quest ? 'Отметьте сдачу квеста.' : 'Сохраните прохождение этого ивента.'}</p>
           )}
           {(!current || current.cancelled || Date.parse(current.cooldownUntil) <= now) && (
             <button
               className="personal-cooldowns__button personal-cooldowns__button--primary"
               disabled={busy}
               type="button"
-              onClick={() => void mutate(eventID)}
+              onClick={() => void mutate(detailID)}
             >
-              Прошёл
+              {quest ? 'Сдал' : 'Прошёл'}
             </button>
           )}
-          <p className="personal-cooldowns__hint">
-            Личный КД не определяет наличие или занятость ивента.
-          </p>
+          {!quest && (
+            <p className="personal-cooldowns__hint">
+              Личный КД не определяет наличие или занятость ивента.
+            </p>
+          )}
         </>
       ) : active.length ? (
         <ul className="personal-cooldowns__list">
           {active.map((record) => (
-            <li key={record.eventID} className="personal-cooldowns__item">
+            <li key={recordID(record)} className="personal-cooldowns__item">
               <h3>
-                <Link href={`/events/${record.slug}`}>{record.name}</Link>
+                <Link href={`/${quest ? 'quests' : 'events'}/${record.slug}`}>{record.name}</Link>
               </h3>
               {end(record)}
               {cancel(record)}
@@ -248,32 +330,70 @@ export function PlayerCooldowns({
           ))}
         </ul>
       ) : (
-        <p>Активных личных КД нет.</p>
+        <p>{quest ? 'Активных КД квестов нет.' : 'Активных личных КД нет.'}</p>
       )}
-      {confirmation && !sessionChanged && (
-        <div
-          role="group"
-          aria-label="Подтверждение отмены"
-          className="personal-cooldowns__confirmation"
+      {quest ? (
+        <AlertDialog
+          open={Boolean(confirmation)}
+          onOpenChange={(open) => {
+            if (!open && !busy) setConfirmation(null)
+          }}
         >
-          <p>Отменить отметку «{confirmation.name}»?</p>
-          <button
-            type="button"
-            className="personal-cooldowns__button"
-            disabled={busy || verifying}
-            onClick={() => void mutate(confirmation.eventID, confirmation)}
+          <AlertDialogContent
+            onCloseAutoFocus={(event) => {
+              event.preventDefault()
+              if (cancelTrigger.current?.isConnected) cancelTrigger.current.focus()
+              else heading.current?.focus()
+            }}
           >
-            Да, отменить
-          </button>
-          <button
-            type="button"
-            className="personal-cooldowns__button"
-            disabled={busy}
-            onClick={() => setConfirmation(null)}
+            <AlertDialogHeader>
+              <AlertDialogTitle>Отменить сдачу?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Отменить отметку «{confirmation?.name}»?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {message && <p role="alert">{message}</p>}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Оставить отметку</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={busy}
+                onClick={(event) => {
+                  event.preventDefault()
+                  if (confirmation) void mutate(recordID(confirmation), confirmation)
+                }}
+              >
+                Да, отменить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : (
+        confirmation &&
+        !sessionChanged && (
+          <div
+            role="group"
+            aria-label="Подтверждение отмены"
+            className="personal-cooldowns__confirmation"
           >
-            Оставить отметку
-          </button>
-        </div>
+            <p>Отменить отметку «{confirmation.name}»?</p>
+            <button
+              type="button"
+              className="personal-cooldowns__button"
+              disabled={busy || verifying}
+              onClick={() => void mutate(recordID(confirmation), confirmation)}
+            >
+              Да, отменить
+            </button>
+            <button
+              type="button"
+              className="personal-cooldowns__button"
+              disabled={busy}
+              onClick={() => setConfirmation(null)}
+            >
+              Оставить отметку
+            </button>
+          </div>
+        )
       )}
       {message && (
         <div role="alert">

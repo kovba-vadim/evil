@@ -3,7 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
 import { itemSlug } from '../fields/itemSlug'
 import { validateQuest } from '../hooks/questBossRewards'
-import { migrateQuestCooldown, readQuestCooldown } from '../hooks/questCooldown'
+import { normalizeQuestCooldown } from '../hooks/questCooldown'
 
 export const Quests: CollectionConfig = {
   slug: 'quests',
@@ -16,7 +16,7 @@ export const Quests: CollectionConfig = {
     update: authenticated,
     delete: authenticated,
   },
-  hooks: { beforeValidate: [migrateQuestCooldown], beforeChange: [validateQuest] },
+  hooks: { beforeValidate: [normalizeQuestCooldown], beforeChange: [validateQuest] },
   fields: withSeoTab([
     { name: 'name', label: 'Название', type: 'text', required: true },
     itemSlug(),
@@ -43,13 +43,18 @@ export const Quests: CollectionConfig = {
     },
     {
       name: 'cooldown',
-      label: 'КД прохождения',
-      type: 'text',
+      label: 'КД прохождения (минуты)',
+      type: 'number',
+      defaultValue: 0,
+      min: 0,
+      validate: (value: unknown) =>
+        value == null ||
+        (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) ||
+        'Укажите целое неотрицательное число минут.',
       admin: {
         description:
-          'Необязательно. Например, «6 часов» или «Раз в сутки». Справочная информация без персонального таймера.',
+          'Продолжительность в целых минутах. Пустое поле сохраняется как 0.',
       },
-      hooks: { afterRead: [readQuestCooldown] },
     },
     {
       name: 'cooldownMinutes',
@@ -62,7 +67,7 @@ export const Quests: CollectionConfig = {
         disableListColumn: true,
         disableListFilter: true,
         description:
-          'Служебное поле для безопасного переноса прежних значений. Колонку пока не удалять.',
+          'Историческая колонка. Для КД квеста используется поле «КД прохождения (минуты)».',
       },
     },
     {

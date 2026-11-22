@@ -61,10 +61,16 @@ export function useServerClock(initialNow: string) {
   }, [initialNow])
   return Date.parse(now) >= Date.parse(initialNow) ? now : initialNow
 }
-export function TimeZoneSelect({ now }: { now: string }) {
+export function TimeZoneSelect({
+  now,
+  className = 'block max-w-lg space-y-2',
+}: {
+  now: string
+  className?: string
+}) {
   const zone = useTimeZone()
   return (
-    <label className="block max-w-lg space-y-2">
+    <label className={className}>
       <span className="text-sm font-medium">Часовой пояс</span>
       <select
         aria-label="Часовой пояс"

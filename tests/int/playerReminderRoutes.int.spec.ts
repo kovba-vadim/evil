@@ -19,19 +19,19 @@ const snapshot = { playerID: user.id, serverNow: '2026-11-14T10:00:00Z', play: n
 const valid = () => ({
   action: 'save',
   eventID: 1,
-  kind: 'once',
+  kind: 'regular',
   leadMinutes: 10,
   includeCooldown: true,
   enabled: true,
-  launchAt: '2026-11-14T11:00:00Z',
+  launchAt: null,
   revision: null,
   requestID: crypto.randomUUID(),
 })
-const post = (data: object, origin = 'http://localhost:3000') =>
+const post = (data: object, origin = 'http://localhost:3000', headers?: Record<string, string>) =>
   POST(
     new Request('http://localhost:3000/api/account/reminders', {
       method: 'POST',
-      headers: { Origin: origin, 'Content-Type': 'application/json' },
+      headers: { Origin: origin, 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(data),
     }),
   )
@@ -80,6 +80,15 @@ it('bounds body size before parsing and never forwards untrusted owner parameter
   expect((await post(input)).status).toBe(200)
   expect(mock.write).toHaveBeenCalledWith({}, user, input, undefined)
 })
+
+it('rejects a catalog write from a tab opened under a different player session', async () => {
+  const input = valid()
+  const origin = 'http://localhost:3000'
+  expect((await post(input, origin, { 'X-Reminder-Player': '2' })).status).toBe(401)
+  expect(mock.write).not.toHaveBeenCalled()
+  expect((await post(input, origin, { 'X-Reminder-Player': String(user.id) })).status).toBe(200)
+  expect(mock.write).toHaveBeenCalledWith({}, user, input, undefined)
+})
 it('uses private no-store responses and the session owner for all reads', async () => {
   const response = await GET(
     new Request('http://localhost:3000/api/account/reminders?playerID=123'),
@@ -94,7 +103,7 @@ it('validates preview parameters on the server', async () => {
     (
       await GET(
         new Request(
-          'http://localhost:3000/api/account/reminders?preview=1&eventID=1&kind=once&leadMinutes=121',
+          'http://localhost:3000/api/account/reminders?preview=1&eventID=1&kind=once&leadMinutes=10',
         ),
       )
     ).status,
@@ -111,4 +120,11 @@ it('validates preview parameters on the server', async () => {
     ).status,
   ).toBe(200)
   expect(mock.preview).toHaveBeenCalledWith({}, user, 1, 'regular', 10)
+})
+
+it('rejects legacy once creates on the public API', async () => {
+  expect((await post({ ...valid(), kind: 'once', launchAt: '2026-11-14T11:00:00Z' })).status).toBe(
+    400,
+  )
+  expect(mock.write).not.toHaveBeenCalled()
 })

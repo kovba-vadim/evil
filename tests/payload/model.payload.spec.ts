@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Payload } from 'payload'
-import type { User } from '../../src/payload-types'
+import type { Clothing, User } from '../../src/payload-types'
 import { openTestPayload } from '../helpers/testDatabase'
 import { ModelFixtures } from '../helpers/modelFixtures'
 import { readAll } from '../helpers/eventFilter'
@@ -43,7 +43,7 @@ async function event(times: number[], resources: number[], coins = 0) {
   return fixtures.create('events', {
     ...named(),
     coins,
-    cooldownMinutes: 0,
+    durationMinutes: 30, cooldownMinutes: 0,
     launchTimes: times,
     rewards: resources.map((resource) => ({ resource, minQuantity: 0, maxQuantity: 1 })),
   })
@@ -210,7 +210,7 @@ describe('reverse queries and deletion guards through Payload', () => {
     const set = await fixtures.create('equipment-sets', named())
     const parts = []
     for (let index = 0; index < 7; index++)
-      parts.push(await fixtures.create('clothing', { ...named(), equipmentSet: set.id }))
+      parts.push(await fixtures.create('clothing', { ...named(), category: 'set', equipmentSet: set.id }))
     // No explicit join limit: exercise the actual configured default.
     const doc = await api.findByID({
       collection: 'equipment-sets',
@@ -295,6 +295,7 @@ describe('reverse queries and deletion guards through Payload', () => {
       const plain = await ordinary()
       const result = await fixtures.create(collection, {
         ...named(),
+        ...(collection === 'clothing' ? { category: 'hazmat' as const } : {}),
         craftable: true,
         recipe: {
           coins: 0,
@@ -336,12 +337,54 @@ describe('reverse queries and deletion guards through Payload', () => {
     },
   )
 
+  it('enforces clothing categories during partial updates and preserves the recipe', async () => {
+    const set = await fixtures.create('equipment-sets', named())
+    const ingredient = await ordinary()
+    const recipe = { coins: 5, ordinaryIngredients: [{ item: ingredient.id, quantity: 2 }] }
+    const part = await fixtures.create('clothing', {
+      ...named(), category: 'set', equipmentSet: set.id, craftable: true, recipe,
+    })
+    const patch = (data: Partial<Pick<Clothing, 'category' | 'equipmentSet'>>) =>
+      api.update({ collection: 'clothing', id: part.id, data, depth: 0, user, overrideAccess: false })
+    await deniedDelete('equipment-sets', set.id)
+    await expect(patch({ equipmentSet: null })).rejects.toMatchObject({ status: 400 })
+    await expect(patch({ category: 'hazmat', equipmentSet: set.id })).rejects.toMatchObject({ status: 400 })
+    await expect(patch({ category: 'ring', equipmentSet: set.id })).rejects.toMatchObject({ status: 400 })
+    await expect(patch({ category: 'ring' })).resolves.toMatchObject({
+      category: 'ring', equipmentSet: null, recipe,
+    })
+    expect(await readAll(reader(), 'clothing', { equipmentSet: { equals: set.id } })).toEqual([])
+    await expect(patch({ category: 'set' })).rejects.toMatchObject({ status: 400 })
+    await expect(patch({ category: 'set', equipmentSet: set.id })).resolves.toMatchObject({
+      category: 'set', equipmentSet: set.id, recipe,
+    })
+    await expect(patch({ category: 'hazmat', equipmentSet: null })).resolves.toMatchObject({
+      category: 'hazmat', equipmentSet: null, recipe,
+    })
+    for (const data of [
+      { category: 'set' },
+      { category: 'set', equipmentSet: -1 },
+      { category: 'hazmat', equipmentSet: set.id },
+      { category: 'ring', equipmentSet: set.id },
+    ] as const) {
+      await expect(api.create({
+        collection: 'clothing', data: { ...named(), ...data }, user, overrideAccess: false,
+      })).rejects.toMatchObject({ status: 400 })
+    }
+    for (const category of ['hazmat', 'ring', 'set'] as const) {
+      const item = await fixtures.create('clothing', {
+        ...named(), category, ...(category === 'set' ? { equipmentSet: set.id } : {}),
+      })
+      expect(item.craftable).toBe(false)
+    }
+  })
+
   it('paginates set reverse queries, reads the full join and reflects moving a part', async () => {
     const set = await fixtures.create('equipment-sets', named())
     const other = await fixtures.create('equipment-sets', named())
     const parts = []
     for (let index = 0; index < 5; index++)
-      parts.push(await fixtures.create('clothing', { ...named(), equipmentSet: set.id }))
+      parts.push(await fixtures.create('clothing', { ...named(), category: 'set', equipmentSet: set.id }))
     expect(ids(await readAll(reader(), 'clothing', { equipmentSet: { equals: set.id } }))).toEqual(
       ids(parts),
     )
@@ -371,7 +414,7 @@ describe('reverse queries and deletion guards through Payload', () => {
       await api.update({
         collection: 'clothing',
         id: part.id,
-        data: { equipmentSet: null },
+        data: { category: 'hazmat', equipmentSet: null },
         user,
         overrideAccess: false,
       })
@@ -390,7 +433,7 @@ describe('reverse queries and deletion guards through Payload', () => {
           ...named(),
           category: category.id,
           coins: 0,
-          cooldown: 'Раз в сутки',
+          cooldown: 1440,
           requiredQuantity: 10,
           ordinaryRewards: [{ item: plain.id, quantity: 1 }],
         }),
@@ -494,53 +537,21 @@ describe('quest fields and access control through Payload', () => {
       }),
     ).resolves.toEqual(expect.any(Array))
   })
-  it('migrates a legacy numeric quest cooldown on PATCH and preserves an explicit clear', async () => {
+  it('normalizes missing quest cooldown and rejects invalid minutes on create and update', async () => {
     const quest = await fixtures.create('quests', { ...named(), coins: 0 })
-    // Reproduce a document from the old schema using the test adapter only.
-    await api.db.updateOne({
-      collection: 'quests',
-      id: quest.id,
-      data: { ...quest, cooldown: null, cooldownMinutes: 360 },
-    })
-    const legacy = await api.findByID({
-      collection: 'quests',
-      id: quest.id,
-      user,
-      overrideAccess: false,
-    })
-    expect(legacy.cooldown).toBe('360 минут')
-    const saved = await api.update({
-      collection: 'quests',
-      id: quest.id,
-      data: { name: fixtures.name() },
-      user,
-      overrideAccess: false,
-    })
-    expect(saved.cooldown).toBe('360 минут')
-    expect(saved.cooldownMinutes).toBeNull()
-    await api.update({
-      collection: 'quests',
-      id: quest.id,
-      data: { cooldown: null },
-      user,
-      overrideAccess: false,
-    })
-    const cleared = await api.findByID({
-      collection: 'quests',
-      id: quest.id,
-      user,
-      overrideAccess: false,
-    })
-    expect(cleared.cooldown ?? null).toBeNull()
-    expect(cleared.cooldownMinutes).toBeNull()
+    expect(quest.cooldown).toBe(0)
+    for (const cooldown of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      await expect(api.create({ collection: 'quests', data: { ...named(), coins: 0, cooldown }, user, overrideAccess: false })).rejects.toMatchObject({ status: 400 })
+      await expect(api.update({ collection: 'quests', id: quest.id, data: { cooldown }, user, overrideAccess: false })).rejects.toMatchObject({ status: 400 })
+    }
   })
 
-  it('preserves text cooldown, optional quantity and rewards across PATCH and clearing', async () => {
+  it('preserves numeric cooldown, optional quantity and rewards across PATCH and clearing', async () => {
     const item = await resource()
     const quest = await fixtures.create('quests', {
       ...named(),
       coins: 0,
-      cooldown: '6 часов',
+      cooldown: 360,
       requiredQuantity: 10,
       rewards: [{ resource: item.id, quantity: 2 }],
     })
@@ -553,7 +564,7 @@ describe('quest fields and access control through Payload', () => {
       overrideAccess: false,
     })
     expect(patched).toMatchObject({
-      cooldown: '6 часов',
+      cooldown: 360,
       requiredQuantity: 10,
       rewards: [{ resource: item.id, quantity: 2 }],
     })
@@ -571,7 +582,7 @@ describe('quest fields and access control through Payload', () => {
     await api.update({
       collection: 'quests',
       id: quest.id,
-      data: { cooldown: '', requiredQuantity: null },
+      data: { cooldown: null, requiredQuantity: null },
       user,
       overrideAccess: false,
     })
@@ -582,12 +593,12 @@ describe('quest fields and access control through Payload', () => {
       user,
       overrideAccess: false,
     })
-    expect(saved.cooldown).toBe('')
+    expect(saved.cooldown).toBe(0)
     expect(saved.requiredQuantity).toBeNull()
     expect(saved.rewards).toMatchObject([{ resource: item.id, quantity: 2 }])
     const empty = await fixtures.create('quests', { ...named(), coins: 0 })
     expect(empty.requiredQuantity ?? null).toBeNull()
-    expect(empty.cooldown ?? null).toBeNull()
+    expect(empty.cooldown).toBe(0)
   })
 
   it.each([
@@ -607,7 +618,7 @@ describe('quest fields and access control through Payload', () => {
       const data =
         collection === 'event-times'
           ? { time: '12:34', minutes: 0 }
-          : { ...named(), coins: 0, cooldownMinutes: 0 }
+          : { ...named(), coins: 0, durationMinutes: 30, cooldownMinutes: 0, ...(collection === 'clothing' ? { category: 'hazmat' } : {}) }
       // Access is checked before field validation, including for malformed anonymous input.
       await expect(api.find({ collection, overrideAccess: false, user: null })).resolves.toBeDefined()
       await expect(
@@ -637,7 +648,7 @@ describe('known upstream join pagination defects (expected failures, not fixed)'
     const set = await fixtures.create('equipment-sets', named())
     const parts = []
     for (let index = 0; index < 3; index++)
-      parts.push(await fixtures.create('clothing', { ...named(), equipmentSet: set.id }))
+      parts.push(await fixtures.create('clothing', { ...named(), category: 'set', equipmentSet: set.id }))
     const doc = await api.findByID({
       collection: 'equipment-sets',
       id: set.id,
@@ -654,7 +665,7 @@ describe('known upstream join pagination defects (expected failures, not fixed)'
     const set = await fixtures.create('equipment-sets', named())
     const expected: number[] = []
     for (let index = 0; index < 21; index++) {
-      expected.push((await fixtures.create('clothing', { ...named(), equipmentSet: set.id })).id)
+      expected.push((await fixtures.create('clothing', { ...named(), category: 'set', equipmentSet: set.id })).id)
     }
     const joined: number[] = []
     for (let page = 1; page <= 3; page++) {
@@ -683,7 +694,7 @@ describe('known upstream join pagination defects (expected failures, not fixed)'
       for (let index = 0; index < 5; index++) {
         const child =
           kind === 'parts'
-            ? await fixtures.create('clothing', { ...named(), equipmentSet: parent.id })
+            ? await fixtures.create('clothing', { ...named(), category: 'set', equipmentSet: parent.id })
             : await fixtures.create('quests', { ...named(), coins: 0, category: parent.id })
         expected.push(child.id)
       }

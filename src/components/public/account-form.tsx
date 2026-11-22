@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { TIME_ZONES, normalizeTimeZone } from '@/lib/time-zones'
@@ -148,37 +147,4 @@ export function AccountTimeZone({ timeZone }: { timeZone: string }) {
     setTimeZone(normalizeTimeZone(timeZone))
   }, [timeZone])
   return null
-}
-
-export function PlayerLogout() {
-  const router = useRouter()
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-  return (
-    <span className="account-nav__logout">
-      <button
-        type="button"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true)
-          try {
-            const response = await fetch('/api/account/logout', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: '{}',
-            })
-            if (!response.ok) throw new Error()
-            router.push('/login')
-            router.refresh()
-          } catch {
-            setMessage('Не удалось выйти. Повторите.')
-            setBusy(false)
-          }
-        }}
-      >
-        {busy ? 'Выход…' : 'Выйти'}
-      </button>
-      <span role="status">{message}</span>
-    </span>
-  )
 }

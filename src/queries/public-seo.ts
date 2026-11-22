@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getPayload } from 'payload'
 import config from '@payload-config'
+import { publicRecordURL } from '@/lib/public-record-url'
 import { catalogTitles } from '@/globals/CatalogSeo'
 
 type Seo = { title?: string | null; description?: string | null } | null | undefined
@@ -35,5 +36,8 @@ export async function getEntryMetadata(
     user: null,
   })
 
-  return metadata(entry?.seo, entry?.name || fallbackTitle)
+  return {
+    ...metadata(entry?.seo, entry?.name || fallbackTitle),
+    alternates: { canonical: publicRecordURL(collection, slug) },
+  }
 }

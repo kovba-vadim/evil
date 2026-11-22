@@ -1,7 +1,8 @@
 'use client'
 import { expandLaunches, launchWindow, type LaunchClock } from '@/lib/event-launches'
-import { formatLaunch, timeZoneLabel } from '@/lib/time-zones'
+import { formatLaunch } from '@/lib/time-zones'
 import { TimeZoneSelect, useTimeZone, useServerClock } from './time-zone'
+import './event-launch-times.scss'
 export function EventLaunchTimes({
   times,
   initialNow,
@@ -16,22 +17,18 @@ export function EventLaunchTimes({
   return (
     <section aria-labelledby="launches-title" className="space-y-4">
       <h2 id="launches-title" className="text-xl font-semibold">
-        {zone === 'server'
-          ? 'Времена запуска по серверу (UTC+3)'
-          : `Времена запуска — ${timeZoneLabel(zone, now)}`}
+        Времена запуска
       </h2>
-      <TimeZoneSelect now={now} />
-      <p className="text-sm text-muted-foreground">
-        Ближайшие 24 часа. Дата и смещение указаны для каждого запуска.
-      </p>
+      <TimeZoneSelect now={now} className="event-launch-times__zone" />
+      <p className="text-sm text-muted-foreground">Ближайшие 24 часа.</p>
       {rows.length ? (
         <ul className="space-y-2">
           {rows.map((row) => {
-            const formatted = formatLaunch(row.instant, zone, now)
+            const formatted = formatLaunch(row.instant, zone, now, 'ru')
             return (
               <li key={row.key}>
                 <time dateTime={row.instant}>
-                  {formatted.date} · {formatted.time} ({formatted.offset})
+                  {formatted.date} — {formatted.time}
                 </time>
               </li>
             )

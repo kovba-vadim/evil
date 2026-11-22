@@ -138,6 +138,7 @@ export async function getPublicEventDetail(payload: Payload, slug: string) {
     event: (await eventCards(payload, [doc]))[0],
     description: doc.description,
     cooldownMinutes: doc.cooldownMinutes,
+    durationMinutes: doc.durationMinutes,
     times,
   }
 }

@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/public/breadcrumbs'
 import { getEntryMetadata } from '@/queries/public-seo'
 import { notFound } from 'next/navigation'
 import { getPayload } from 'payload'
@@ -14,5 +15,10 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const { slug } = await params
   const data = await getOrdinaryItem(await getPayload({ config }), slug)
   if (!data) notFound()
-  return <OrdinaryDetails item={data} />
+  return (
+    <>
+      <Breadcrumbs section="craft" title={data.name} />
+      <OrdinaryDetails item={data} />
+    </>
+  )
 }

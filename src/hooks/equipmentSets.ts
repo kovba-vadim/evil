@@ -1,6 +1,17 @@
 import { APIError, ValidationError } from 'payload'
-import type { CollectionBeforeChangeHook, CollectionBeforeDeleteHook } from 'payload'
+import type { CollectionBeforeChangeHook, CollectionBeforeDeleteHook, FieldHook } from 'payload'
 import type { Clothing } from '../payload-types'
+
+export const clearFormerClothingSet: FieldHook<Clothing> = ({ originalDoc, siblingData }) => {
+  // This runs before Payload fills an omitted relationship from the original document.
+  if (
+    originalDoc?.category === 'set' &&
+    (siblingData.category === 'hazmat' || siblingData.category === 'ring') &&
+    siblingData.equipmentSet === undefined
+  ) {
+    return null
+  }
+}
 
 export const validateClothingSet: CollectionBeforeChangeHook<Clothing> = async ({
   data,
@@ -10,9 +21,13 @@ export const validateClothingSet: CollectionBeforeChangeHook<Clothing> = async (
   const equipmentSet =
     data.equipmentSet === undefined ? originalDoc?.equipmentSet : data.equipmentSet
   const id = equipmentSet && typeof equipmentSet === 'object' ? equipmentSet.id : equipmentSet
-  const errors: { path: string; message: string }[] = []
-
-  if (id != null) {
+  const category = data.category === undefined ? originalDoc?.category : data.category
+  let message: string | undefined
+  if (category === 'set' && id == null) {
+    message = 'Для части сета выберите комплект.'
+  } else if ((category === 'hazmat' || category === 'ring') && id != null) {
+    message = 'У самостоятельного предмета не должно быть связи с сетом.'
+  } else if (id != null) {
     const found = await req.payload.find({
       collection: 'equipment-sets',
       where: { id: { equals: id } },
@@ -21,10 +36,14 @@ export const validateClothingSet: CollectionBeforeChangeHook<Clothing> = async (
       req,
       overrideAccess: true,
     })
-    if (!found.docs.length)
-      errors.push({ path: 'equipmentSet', message: 'Выбранный сет не существует.' })
+    if (!found.docs.length) message = 'Выбранный сет не существует.'
   }
-  if (errors.length) throw new ValidationError({ collection: 'clothing', errors, req })
+  if (message)
+    throw new ValidationError({
+      collection: 'clothing',
+      errors: [{ path: 'equipmentSet', message }],
+      req,
+    })
   return data
 }
 

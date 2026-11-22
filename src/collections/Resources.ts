@@ -1,3 +1,5 @@
+import { shopFields } from '../fields/shopFields'
+import { hideInactiveShop, validateShop } from '../hooks/shop'
 import { withSeoTab } from '../fields/seo'
 import type { CollectionConfig } from 'payload'
 import { authenticated } from '../access/authenticated'
@@ -18,8 +20,8 @@ export const Resources: CollectionConfig = {
     delete: authenticated,
   },
   hooks: {
-    afterRead: [hideInactivePublicRecipe],
-    beforeChange: [validateRecipe],
+    afterRead: [hideInactivePublicRecipe, hideInactiveShop],
+    beforeChange: [validateRecipe, validateShop],
     beforeDelete: [preventIngredientDeletion('resource')],
   },
   fields: withSeoTab([
@@ -28,5 +30,6 @@ export const Resources: CollectionConfig = {
     { name: 'image', label: 'Изображение', type: 'upload', relationTo: 'media' },
     { name: 'description', label: 'Описание', type: 'richText' },
     ...recipeFields(),
+    shopFields(),
   ]),
 }

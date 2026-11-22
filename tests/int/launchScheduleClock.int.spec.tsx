@@ -3,6 +3,11 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { useServerClock } from '../../src/components/public/time-zone'
 import { LaunchSchedule } from '../../src/components/public/launch-schedule'
 import { TIME_ZONE_STORAGE_KEY } from '../../src/lib/time-zones'
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/event-launches',
+  useSearchParams: () => new URLSearchParams(),
+}))
 afterEach(() => {
   cleanup()
   vi.useRealTimers()

@@ -1,4 +1,6 @@
 import { formatLaunch, normalizeTimeZone } from './time-zones'
+export const COOLDOWN_CHANGED_EVENT = 'evil-player-cooldown-changed'
+export const QUEST_COOLDOWN_CHANGED_EVENT = 'evil-player-quest-cooldown-changed'
 
 export type PersonalCooldown = {
   id: number
@@ -11,6 +13,9 @@ export type PersonalCooldown = {
   revision: string
 }
 export type CooldownSnapshot = { playerID: number; serverNow: string; records: PersonalCooldown[] }
+export type QuestCooldownSnapshot = Omit<CooldownSnapshot, 'records'> & {
+  records: (Omit<PersonalCooldown, 'eventID'> & { questID: number })[]
+}
 export function cooldownEnd(completedAt: string, minutes: unknown) {
   // Missing legacy values explicitly mean no personal cooldown, as does zero.
   if (minutes === null || minutes === undefined) minutes = 0

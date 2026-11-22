@@ -20,11 +20,11 @@ test('personal cooldown lifecycle persists across sessions and devices with priv
   const secondContext = await browser.newContext()
   const second = await secondContext.newPage()
   async function login(target: typeof page, email: string) {
-    await target.goto('http://localhost:3101/login')
+    await target.goto('http://localhost:3101/login?returnTo=%2Faccount%2Fcooldowns')
     await target.getByLabel('Email', { exact: true }).fill(email)
     await target.getByLabel('Пароль', { exact: true }).fill(password)
     await target.getByRole('button', { name: 'Войти', exact: true }).click()
-    await expect(target).toHaveURL(/\/account$/)
+    await expect(target).toHaveURL(/\/account\/cooldowns$/, { timeout: 20_000 })
   }
   try {
     for (const address of [email, otherEmail])
@@ -51,7 +51,7 @@ test('personal cooldown lifecycle persists across sessions and devices with priv
             name: `Личный КД ${crypto.randomUUID()}`,
             slug: `personal-${crypto.randomUUID()}`,
             coins: 0,
-            cooldownMinutes: minutes,
+            durationMinutes: 30, cooldownMinutes: minutes,
           },
         }),
       )
@@ -140,13 +140,15 @@ test('personal cooldown lifecycle persists across sessions and devices with priv
         )
       ).status(),
     ).toBeGreaterThanOrEqual(400)
-    await page.goto('/account')
+    await page.goto('/account/cooldowns')
     await expect(
       page
         .getByRole('region', { name: 'Мои КД', exact: true })
         .getByRole('link', { name: event.name }),
     ).toBeVisible()
-    await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+    await page.getByRole('button', { name: 'Меню игрока', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Выйти', exact: true }).click()
+    await expect(page).toHaveURL(/\/login$/)
     await login(page, email)
     expect((await (await context.request.get(endpoint)).json()).records[0].cooldownUntil).toBe(
       current.cooldownUntil,
@@ -174,7 +176,7 @@ test('personal cooldown lifecycle persists across sessions and devices with priv
       context: capability,
       data: { cooldownUntil: new Date(Date.now() + 2500).toISOString() },
     })
-    await page.goto('/account')
+    await page.goto('/account/cooldowns')
     await expect(page.getByText('Активных личных КД нет.')).toBeVisible({ timeout: 8000 })
     await page.goto(`/events/${event.slug}`)
     await expect(page.getByText('КД закончился.', { exact: true })).toBeVisible()
@@ -183,6 +185,7 @@ test('personal cooldown lifecycle persists across sessions and devices with priv
     await page.getByRole('button', { name: 'Прошёл', exact: true }).click()
     await expect(page.getByText('Прохождение сохранено. У ивента нет личного КД.')).toBeVisible()
     await page.setViewportSize({ width: 375, height: 850 })
+    await expect(page.locator('[data-slot="sidebar-gap"]')).toHaveCSS('width', '48px')
     await page.emulateMedia({ colorScheme: 'dark' })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: 'test-results/cooldowns-mobile.png', fullPage: true })

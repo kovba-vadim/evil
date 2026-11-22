@@ -1,13 +1,15 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { EventReminderBell } from './catalog-reminders'
 import type { PublicSchedule } from '@/queries/public-launches'
 import { formatLaunch, timeZoneLabel } from '@/lib/time-zones'
 import { publicRecordURL } from '@/lib/public-record-url'
-import { Button } from '@/components/ui/button'
+import { FilterDialog } from './filter-dialog'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import { EventRewards } from './events'
+import { RewardCoins } from './reward-labels'
 import { TimeZoneSelect, useTimeZone, useServerClock } from './time-zone'
 export function LaunchSchedule({
   initial,
@@ -16,12 +18,29 @@ export function LaunchSchedule({
   initial: PublicSchedule
   options: { minimum: number; maximum: number; resources: { id: number; name: string }[] }
 }) {
+  const defaultFilters = {
+    from: '',
+    to: '',
+    coinsFrom: String(options.minimum),
+    coinsTo: String(options.maximum),
+    resources: [] as number[],
+  }
   const zone = useTimeZone(),
     [from, setFrom] = useState(''),
     [to, setTo] = useState('')
   const [coinsFrom, setCoinsFrom] = useState(String(options.minimum)),
     [coinsTo, setCoinsTo] = useState(String(options.maximum)),
     [resources, setResources] = useState<number[]>([])
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState({ from, to, coinsFrom, coinsTo, resources })
+  const draftLow = draft.coinsFrom === '' ? options.minimum : Number(draft.coinsFrom)
+  const draftHigh = draft.coinsTo === '' ? options.maximum : Number(draft.coinsTo)
+  const draftValid =
+    Number.isSafeInteger(draftLow) &&
+    Number.isSafeInteger(draftHigh) &&
+    draftLow >= options.minimum &&
+    draftHigh <= options.maximum &&
+    draftLow <= draftHigh
   const [refresh, setRefresh] = useState(0),
     requestVersion = useRef(0)
   const low = coinsFrom === '' ? options.minimum : Number(coinsFrom),
@@ -95,124 +114,153 @@ export function LaunchSchedule({
     data?.rows.filter(
       (row) => data.window?.mode !== 'rolling' || Date.parse(row.instant) >= Date.parse(now),
     ) ?? []
-  function reset() {
+  function apply(next: typeof draft) {
     requestVersion.current++
-    setFrom('')
-    setTo('')
-    setCoinsFrom(String(options.minimum))
-    setCoinsTo(String(options.maximum))
-    setResources([])
+    setFrom(next.from)
+    setTo(next.to)
+    setCoinsFrom(next.coinsFrom)
+    setCoinsTo(next.coinsTo)
+    setResources(next.resources)
     setError(null)
     setRefresh((value) => value + 1)
+    setOpen(false)
   }
   return (
     <section aria-labelledby="schedule-title" className="space-y-6">
-      <h1 id="schedule-title" className="text-3xl font-semibold tracking-tight">
-        Запуск ивентов
-      </h1>
-      <TimeZoneSelect now={now} />
-      <div className="space-y-6 rounded-lg border p-4">
-        <fieldset className="space-y-3">
-          <legend className="font-medium">Время запуска в выбранном поясе</legend>
-          <div className="grid max-w-md grid-cols-2 gap-4">
-            <label className="space-y-2">
-              От
-              <Input
-                aria-label="Время От"
-                type="time"
-                value={from}
-                onChange={(event) => setFrom(event.target.value)}
-              />
-            </label>
-            <label className="space-y-2">
-              До
-              <Input
-                aria-label="Время До"
-                type="time"
-                value={to}
-                onChange={(event) => setTo(event.target.value)}
-              />
-            </label>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Без диапазона — ближайшие 24 часа. Заполненный диапазон — ближайшее вхождение;
-            одинаковые часы означают полные местные сутки.
-          </p>
-        </fieldset>
-        <fieldset className="space-y-4">
-          <legend className="font-medium">Монеты</legend>
-          {options.minimum < options.maximum && (
-            <Slider
-              min={options.minimum}
-              max={options.maximum}
-              value={valid ? [low, high] : [options.minimum, options.maximum]}
-              step={1}
-              onValueChange={(values) => {
-                setCoinsFrom(String(values[0]))
-                setCoinsTo(String(values[1]))
-              }}
-            />
-          )}
-          <div className="grid max-w-md grid-cols-2 gap-4">
-            <label>
-              От
-              <Input
-                type="number"
-                aria-label="Монеты От"
-                step="1"
-                min={options.minimum}
-                max={options.maximum}
-                value={coinsFrom}
-                disabled={options.minimum === options.maximum}
-                onChange={(event) => setCoinsFrom(event.target.value)}
-              />
-            </label>
-            <label>
-              До
-              <Input
-                type="number"
-                aria-label="Монеты До"
-                step="1"
-                min={options.minimum}
-                max={options.maximum}
-                value={coinsTo}
-                disabled={options.minimum === options.maximum}
-                onChange={(event) => setCoinsTo(event.target.value)}
-              />
-            </label>
-          </div>
-          {options.minimum === options.maximum && (
-            <p className="text-sm text-muted-foreground">Монеты: {options.minimum}</p>
-          )}
-        </fieldset>
-        {options.resources.length > 0 && (
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 id="schedule-title" className="text-3xl font-semibold tracking-tight">
+          Запуск ивентов
+        </h1>
+        <FilterDialog
+          title="Фильтры запусков"
+          count={
+            Number(Boolean(from || to)) +
+            Number(low !== options.minimum || high !== options.maximum) +
+            Number(resources.length > 0)
+          }
+          open={open}
+          onOpenChange={(next) => {
+            if (next) setDraft({ from, to, coinsFrom, coinsTo, resources: [...resources] })
+            setOpen(next)
+          }}
+          onReset={() => setDraft(defaultFilters)}
+          onResetApplied={() => {
+            setDraft(defaultFilters)
+            apply(defaultFilters)
+          }}
+          onApply={() => apply(draft)}
+          valid={draftValid}
+        >
           <fieldset className="space-y-3">
-            <legend className="font-medium">Все выбранные предметы награды</legend>
-            <div className="grid max-h-64 gap-3 overflow-y-auto sm:grid-cols-2">
-              {options.resources.map((resource) => (
-                <label key={resource.id} className="flex items-start gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-1 size-4 shrink-0 accent-primary"
-                    checked={resources.includes(resource.id)}
-                    onChange={(event) =>
-                      setResources((values) =>
-                        event.target.checked
-                          ? [...values, resource.id]
-                          : values.filter((id) => id !== resource.id),
-                      )
-                    }
-                  />
-                  <span className="wrap-anywhere">{resource.name}</span>
-                </label>
-              ))}
+            <legend className="font-medium">Время запуска в выбранном поясе</legend>
+            <div className="grid max-w-md grid-cols-2 gap-4">
+              <label className="space-y-2">
+                От
+                <Input
+                  aria-label="Время От"
+                  type="time"
+                  value={draft.from}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, from: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="space-y-2">
+                До
+                <Input
+                  aria-label="Время До"
+                  type="time"
+                  value={draft.to}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, to: event.target.value }))
+                  }
+                />
+              </label>
             </div>
+            <p className="text-sm text-muted-foreground">
+              Без диапазона — ближайшие 24 часа. Заполненный диапазон — ближайшее вхождение;
+              одинаковые часы означают полные местные сутки.
+            </p>
           </fieldset>
-        )}
-        <Button variant="outline" onClick={reset}>
-          Сбросить
-        </Button>
+          <fieldset className="space-y-4">
+            <legend className="font-medium">Монеты</legend>
+            {options.minimum < options.maximum && (
+              <Slider
+                min={options.minimum}
+                max={options.maximum}
+                value={draftValid ? [draftLow, draftHigh] : [options.minimum, options.maximum]}
+                step={1}
+                onValueChange={(values) => {
+                  setDraft((current) => ({ ...current, coinsFrom: String(values[0]) }))
+                  setDraft((current) => ({ ...current, coinsTo: String(values[1]) }))
+                }}
+              />
+            )}
+            <div className="grid max-w-md grid-cols-2 gap-4">
+              <label>
+                От
+                <Input
+                  type="number"
+                  aria-label="Монеты От"
+                  step="1"
+                  min={options.minimum}
+                  max={options.maximum}
+                  value={draft.coinsFrom}
+                  disabled={options.minimum === options.maximum}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, coinsFrom: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                До
+                <Input
+                  type="number"
+                  aria-label="Монеты До"
+                  step="1"
+                  min={options.minimum}
+                  max={options.maximum}
+                  value={draft.coinsTo}
+                  disabled={options.minimum === options.maximum}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, coinsTo: event.target.value }))
+                  }
+                />
+              </label>
+            </div>
+            {options.minimum === options.maximum && (
+              <p className="text-sm text-muted-foreground">Монеты: {options.minimum}</p>
+            )}
+          </fieldset>
+          {options.resources.length > 0 && (
+            <fieldset className="space-y-3">
+              <legend className="font-medium">Все выбранные предметы награды</legend>
+              <div className="grid max-h-64 gap-3 overflow-y-auto sm:grid-cols-2">
+                {options.resources.map((resource) => (
+                  <label key={resource.id} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1 size-4 shrink-0 accent-primary"
+                      checked={draft.resources.includes(resource.id)}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          resources: event.target.checked
+                            ? [...current.resources, resource.id]
+                            : current.resources.filter((id) => id !== resource.id),
+                        }))
+                      }
+                    />
+                    <span className="wrap-anywhere">{resource.name}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          {!draftValid && <p role="alert">Укажите корректные границы монет.</p>}
+        </FilterDialog>
       </div>
+      <TimeZoneSelect now={now} />
       <div aria-live="polite" aria-busy={valid && !data} className="space-y-4">
         {!valid ? (
           <p role="alert">Укажите корректные границы монет.</p>
@@ -247,13 +295,16 @@ export function LaunchSchedule({
                         {time.time} <span className="text-sm">({time.offset})</span>
                       </time>
                       <div className="min-w-0 space-y-3">
-                        <Link
-                          href={publicRecordURL('events', row.event.slug)!}
-                          className="font-medium text-primary underline underline-offset-4 wrap-anywhere"
-                        >
-                          {row.event.name}
-                        </Link>
-                        <p>Монеты: {row.event.coins}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <Link
+                            href={publicRecordURL('events', row.event.slug)!}
+                            className="min-w-0 self-center font-medium text-primary underline underline-offset-4 wrap-anywhere"
+                          >
+                            {row.event.name}
+                          </Link>
+                          <EventReminderBell event={row.event} />
+                        </div>
+                        <RewardCoins coins={row.event.coins} />
                         <EventRewards rewards={row.event.rewards} />
                       </div>
                     </li>

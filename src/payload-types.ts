@@ -71,6 +71,7 @@ export interface Config {
     users: User;
     players: Player;
     'player-event-cooldowns': PlayerEventCooldown;
+    'player-quest-cooldowns': PlayerQuestCooldown;
     'player-event-reminders': PlayerEventReminder;
     'player-play-sessions': PlayerPlaySession;
     media: Media;
@@ -101,6 +102,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     players: PlayersSelect<false> | PlayersSelect<true>;
     'player-event-cooldowns': PlayerEventCooldownsSelect<false> | PlayerEventCooldownsSelect<true>;
+    'player-quest-cooldowns': PlayerQuestCooldownsSelect<false> | PlayerQuestCooldownsSelect<true>;
     'player-event-reminders': PlayerEventRemindersSelect<false> | PlayerEventRemindersSelect<true>;
     'player-play-sessions': PlayerPlaySessionsSelect<false> | PlayerPlaySessionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -328,6 +330,10 @@ export interface Event {
    * Выберите известные ежедневные времена по серверу UTC+3. Расписание не генерируется автоматически.
    */
   launchTimes?: (number | EventTime)[] | null;
+  /**
+   * Расчётное время от запуска до окончания ивента. Ивент может закончиться раньше, если его прошли.
+   */
+  durationMinutes: number;
   coins: number;
   /**
    * Правило игры, а не интервал запусков и не личный таймер.
@@ -421,6 +427,11 @@ export interface Resource {
       | null;
     coins?: number | null;
   };
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
   seo?: {
     title?: string | null;
     description?: string | null;
@@ -476,9 +487,120 @@ export interface OrdinaryItem {
     };
     [k: string]: unknown;
   } | null;
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
   seo?: {
     title?: string | null;
     description?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-quest-cooldowns".
+ */
+export interface PlayerQuestCooldown {
+  id: number;
+  player: number | Player;
+  quest: number | Quest;
+  completedAt: string;
+  cooldownUntil: string;
+  cancelled: boolean;
+  revision: string;
+  requestID: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quests".
+ */
+export interface Quest {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Необязательно. Выберите одну категорию квеста.
+   */
+  category?: (number | null) | QuestCategory;
+  coins: number;
+  /**
+   * Сколько нужно собрать, добыть или выполнить для завершения квеста
+   */
+  requiredQuantity?: number | null;
+  /**
+   * Продолжительность в целых минутах. Пустое поле сохраняется как 0.
+   */
+  cooldown?: number | null;
+  /**
+   * Историческая колонка. Для КД квеста используется поле «КД прохождения (минуты)».
+   */
+  cooldownMinutes?: number | null;
+  rewards?:
+    | {
+        resource: number | Resource;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  ordinaryRewards?:
+    | {
+        item: number | OrdinaryItem;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "quest-categories".
+ */
+export interface QuestCategory {
+  id: number;
+  _order?: string | null;
+  name: string;
+  /**
+   * Слаг новой записи автоматически заполняется из названия.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * Список определяется полем «Категория» у квестов.
+   */
+  quests?: {
+    docs?: (number | Quest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
   };
   updatedAt: string;
   createdAt: string;
@@ -553,6 +675,11 @@ export interface EquipmentSet {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
   seo?: {
     title?: string | null;
     description?: string | null;
@@ -589,8 +716,9 @@ export interface Clothing {
     };
     [k: string]: unknown;
   } | null;
+  category: 'set' | 'hazmat' | 'ring';
   /**
-   * Для части комплекта выберите сет. Для хазмата оставьте пустым
+   * Выберите комплект, в который входит предмет.
    */
   equipmentSet?: (number | null) | EquipmentSet;
   craftable?: boolean | null;
@@ -613,6 +741,14 @@ export interface Clothing {
         }[]
       | null;
     coins?: number | null;
+  };
+  /**
+   * Перед переводом предмета в часть сета отключите покупку.
+   */
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
   };
   seo?: {
     title?: string | null;
@@ -671,99 +807,14 @@ export interface Weapon {
       | null;
     coins?: number | null;
   };
+  shop?: {
+    enabled?: boolean | null;
+    price?: number | null;
+    url?: string | null;
+  };
   seo?: {
     title?: string | null;
     description?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "quests".
- */
-export interface Quest {
-  id: number;
-  _order?: string | null;
-  name: string;
-  /**
-   * Слаг новой записи автоматически заполняется из названия.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  description?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Необязательно. Выберите одну категорию квеста.
-   */
-  category?: (number | null) | QuestCategory;
-  coins: number;
-  /**
-   * Сколько нужно собрать, добыть или выполнить для завершения квеста
-   */
-  requiredQuantity?: number | null;
-  /**
-   * Необязательно. Например, «6 часов» или «Раз в сутки». Справочная информация без персонального таймера.
-   */
-  cooldown?: string | null;
-  /**
-   * Служебное поле для безопасного переноса прежних значений. Колонку пока не удалять.
-   */
-  cooldownMinutes?: number | null;
-  rewards?:
-    | {
-        resource: number | Resource;
-        quantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  ordinaryRewards?:
-    | {
-        item: number | OrdinaryItem;
-        quantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  seo?: {
-    title?: string | null;
-    description?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "quest-categories".
- */
-export interface QuestCategory {
-  id: number;
-  _order?: string | null;
-  name: string;
-  /**
-   * Слаг новой записи автоматически заполняется из названия.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  /**
-   * Список определяется полем «Категория» у квестов.
-   */
-  quests?: {
-    docs?: (number | Quest)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
   };
   updatedAt: string;
   createdAt: string;
@@ -1024,6 +1075,21 @@ export interface PlayerEventCooldownsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "player-quest-cooldowns_select".
+ */
+export interface PlayerQuestCooldownsSelect<T extends boolean = true> {
+  player?: T;
+  quest?: T;
+  completedAt?: T;
+  cooldownUntil?: T;
+  cancelled?: T;
+  revision?: T;
+  requestID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "player-event-reminders_select".
  */
 export interface PlayerEventRemindersSelect<T extends boolean = true> {
@@ -1082,6 +1148,13 @@ export interface OrdinaryItemsSelect<T extends boolean = true> {
   slug?: T;
   image?: T;
   description?: T;
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -1122,6 +1195,13 @@ export interface ResourcesSelect<T extends boolean = true> {
             };
         coins?: T;
       };
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -1143,6 +1223,13 @@ export interface EquipmentSetsSelect<T extends boolean = true> {
   image?: T;
   description?: T;
   parts?: T;
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -1163,6 +1250,7 @@ export interface ClothingSelect<T extends boolean = true> {
   slug?: T;
   image?: T;
   description?: T;
+  category?: T;
   equipmentSet?: T;
   craftable?: T;
   recipe?:
@@ -1183,6 +1271,13 @@ export interface ClothingSelect<T extends boolean = true> {
               id?: T;
             };
         coins?: T;
+      };
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
       };
   seo?:
     | T
@@ -1224,6 +1319,13 @@ export interface WeaponsSelect<T extends boolean = true> {
             };
         coins?: T;
       };
+  shop?:
+    | T
+    | {
+        enabled?: T;
+        price?: T;
+        url?: T;
+      };
   seo?:
     | T
     | {
@@ -1256,6 +1358,7 @@ export interface EventsSelect<T extends boolean = true> {
   shortDescription?: T;
   description?: T;
   launchTimes?: T;
+  durationMinutes?: T;
   coins?: T;
   cooldownMinutes?: T;
   rewards?:

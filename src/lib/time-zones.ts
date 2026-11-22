@@ -43,16 +43,25 @@ export function timeZoneLabel(id: TimeZoneID, now: string) {
   const zone = TIME_ZONES.find((zone) => zone.id === id)!
   return `${zone.city} — ${offsetLabel(Temporal.Instant.from(now).toZonedDateTimeISO(zone.zone).offset)}`
 }
-export function formatLaunch(instant: string, zone: TimeZoneID, now: string) {
+export function formatLaunch(
+  instant: string,
+  zone: TimeZoneID,
+  now: string,
+  dateFormat: 'iso' | 'ru' = 'iso',
+) {
   const local = Temporal.Instant.from(instant).toZonedDateTimeISO(zoneName(zone))
   const today = Temporal.Instant.from(now).toZonedDateTimeISO(zoneName(zone)).toPlainDate()
   const date = local.toPlainDate(),
     difference = today.until(date).days
   const prefix =
     difference === 0 ? 'Сегодня' : difference === 1 ? 'Завтра' : difference === -1 ? 'Вчера' : ''
+  const dateLabel =
+    dateFormat === 'ru'
+      ? date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : date.toString()
   return {
     time: local.toPlainTime().toString({ smallestUnit: 'minute' }),
-    date: `${prefix ? prefix + ', ' : ''}${date.toString()}`,
+    date: `${prefix ? prefix + ', ' : ''}${dateLabel}`,
     offset: offsetLabel(local.offset),
   }
 }
